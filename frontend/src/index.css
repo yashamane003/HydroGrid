@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Colors */
+  --bg-canvas: #f3f4f6;       /* Light gray / off-white */
+  --sidebar-bg: #1e293b;      /* Dark slate / charcoal */
+  --sidebar-text: #94a3b8;    /* Muted gray for text */
+  --sidebar-active: #3b82f6;  /* Soft blue */
+  --sidebar-hover: #334155;
+  
+  --primary: #3b82f6;         /* Soft blue */
+  --primary-hover: #2563eb;
+  --accent: #8b5cf6;          /* Muted purple */
+  --danger: #ef4444;          /* Red */
+  
+  --text-main: #111827;       /* Dark gray/black */
+  --text-muted: #6b7280;      /* Medium gray */
+  --card-bg: #ffffff;
+  
+  /* Form Colors */
+  --input-border: #d1d5db;
+  --input-focus: #3b82f6;
+  --input-bg: #ffffff;
+
+  /* Spacing & Sizing */
+  --radius-md: 0.5rem;        /* 8px */
+  --radius-xl: 1rem;          /* 16px */
+  --radius-2xl: 1.5rem;       /* 24px */
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-soft: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+p {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  padding: 2rem;
+}
+
+/* Auth Layout Utilities */
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 400px;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-soft);
+  padding: 2.5rem;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  background-color: var(--input-bg);
+  color: var(--text-main);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box; /* Important for full width */
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-size: 0.95rem;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+}
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: var(--text-main);
+}
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-danger {
+  background-color: var(--danger);
+  color: white;
+}
+
+/* Links */
+.link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+.link:hover {
+  text-decoration: underline;
+}
