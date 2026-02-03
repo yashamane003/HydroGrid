@@ -28,6 +28,7 @@ const authUser = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      company: user.company,
       token: generateToken(user._id),
     });
   } else {
@@ -107,11 +108,23 @@ const setupAdmin = async (req, res) => {
   const adminEmail = "admin@example.com";
   let user = await User.findOne({ email: adminEmail });
 
+  let company = await Company.findOne({ name: "Admin Farm" });
+  if (!company) {
+    company = await Company.create({ name: "Admin Farm" });
+  }
+
   if (user) {
     user.role = "admin";
     user.name = "System Admin";
+    user.company = company._id;
     if (!user.lastLogin) user.lastLogin = Date.now();
     await user.save();
+
+    if (!company.users.includes(user._id)) {
+      company.users.push(user._id);
+      await company.save();
+    }
+
     res.json({
       message: "Existing user updated to Admin role.",
       email: adminEmail,
@@ -122,8 +135,13 @@ const setupAdmin = async (req, res) => {
       email: adminEmail,
       password: "password123",
       role: "admin",
+      company: company._id,
       lastLogin: Date.now(),
     });
+
+    company.users.push(user._id);
+    await company.save();
+
     res.json({
       message: "Admin user created.",
       email: adminEmail,

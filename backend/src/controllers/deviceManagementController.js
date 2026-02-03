@@ -1,5 +1,6 @@
 const Device = require("../models/deviceModel");
 const Company = require("../models/companyModel");
+const DeviceTelemetry = require("../models/telemetryModel");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 
@@ -47,33 +48,64 @@ const registerDevice = async (req, res) => {
 // @access  Private
 const getMyDevices = async (req, res) => {
   const devices = await Device.find({ company: req.user.company });
-  res.json(devices);
+
+  const offlineThreshold = 30000; // 30 seconds (down from 60 for better real-time feel)
+
+  const enrichedDevices = await Promise.all(
+    devices.map(async (device) => {
+      let currentStatus = device.status;
+
+      // Check for timeout
+      if (
+        device.status === "online" &&
+        (!device.lastSeen || Date.now() - device.lastSeen > offlineThreshold)
+      ) {
+        currentStatus = "offline";
+        device.status = "offline";
+        await device.save();
+      }
+
+      // Fetch latest telemetry
+      const latestTelemetry = await DeviceTelemetry.findOne({
+        device: device._id,
+      }).sort({ timestamp: -1 });
+
+      return {
+        ...device.toObject(),
+        status: currentStatus,
+        latestData: latestTelemetry ? latestTelemetry.data : null,
+      };
+    }),
+  );
+
+  res.json(enrichedDevices);
 };
 
 // @desc    Claim a device using Pairing Token
 // @route   POST /api/devices/claim
 // @access  User
 const claimDevice = async (req, res) => {
-  const { pairingToken, name } = req.body;
+  const { pairingToken, token, name } = req.body;
+  const tokenToUse = pairingToken || token;
 
-  if (!pairingToken) {
+  if (!tokenToUse) {
     return res.status(400).json({ message: "Pairing token required" });
   }
 
   // Find device by token
-  const device = await Device.findOne({ pairingToken });
+  const device = await Device.findOne({ pairingToken: tokenToUse });
 
   if (!device) {
     return res.status(404).json({ message: "Invalid pairing token" });
   }
 
   // Check expiry
-  if (device.pairingExpiry && device.pairingExpiry < Date.now()) {
+  if (device.tokenExpiresAt && device.tokenExpiresAt < Date.now()) {
     return res.status(400).json({ message: "Pairing token expired" });
   }
 
-  // Check if already claimed (redundant if token is cleared, but safe)
-  if (device.status !== "unclaimed" && device.company) {
+  // Check if already claimed
+  if (device.paired || (device.userId && device.status !== "unclaimed")) {
     return res.status(400).json({ message: "Device already claimed" });
   }
 
@@ -84,28 +116,65 @@ const claimDevice = async (req, res) => {
 
   // Bind Device
   device.company = req.user.company;
+  device.userId = req.user._id; // New requirement
   device.name = name || device.name;
   device.deviceSecret = hashedSecret;
   device.pairingToken = undefined; // Clear token
-  device.pairingExpiry = undefined;
-  device.status = "offline"; // Ready for auth
+  device.tokenExpiresAt = undefined;
+  device.paired = true; // New requirement
+  device.status = "online"; // Set online initially as we just communicated
+  device.lastSeen = Date.now();
+  console.log(`CLAIMING DEVICE ${device.deviceId} - Setting status to ONLINE`);
 
   await device.save();
 
   // Add to Company list
-  const company = await Company.findById(req.user.company);
-  if (!company.devices.includes(device._id)) {
-    company.devices.push(device._id);
-    await company.save();
+  // Add to Company list if user belongs to one
+  if (req.user.company) {
+    const company = await Company.findById(req.user.company);
+    if (company) {
+      if (!company.devices.includes(device._id)) {
+        company.devices.push(device._id);
+        await company.save();
+      }
+    }
   }
 
   // Return the secret to the user
   res.json({
-    _id: device._id,
+    success: true,
     deviceId: device.deviceId,
-    name: device.name,
-    deviceSecret: secret, // One-time show
   });
 };
 
-module.exports = { registerDevice, getMyDevices, claimDevice };
+// @desc    Delete a device
+// @route   DELETE /api/devices/:id
+// @access  Private
+const deleteDevice = async (req, res) => {
+  const device = await Device.findById(req.params.id);
+
+  if (!device) {
+    return res.status(404).json({ message: "Device not found" });
+  }
+
+  // Ensure user owns the device
+  // If device.company is missing (null), we allow deletion if the user's company matches (or is also null/missing)
+  const deviceCompanyId = device.company ? device.company.toString() : null;
+  const userCompanyId = req.user.company ? req.user.company.toString() : null;
+
+  if (deviceCompanyId !== userCompanyId) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+
+  // Remove device reference from Company
+  await Company.updateOne(
+    { _id: req.user.company },
+    { $pull: { devices: req.params.id } },
+  );
+
+  await device.deleteOne();
+
+  res.json({ message: "Device removed" });
+};
+
+module.exports = { registerDevice, getMyDevices, claimDevice, deleteDevice };

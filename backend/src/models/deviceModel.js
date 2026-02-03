@@ -7,13 +7,20 @@ const deviceSchema = mongoose.Schema(
       required: true,
       unique: true,
     },
+    rawMac: {
+      type: String, // Stored for admin/debugging purposes
+    },
     deviceSecret: {
       type: String,
       // required: true // Not required until claimed/auth setup
     },
     name: {
       type: String,
-      required: true,
+      default: "New Device", // Default name until claimed
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     company: {
       type: mongoose.Schema.Types.ObjectId,
@@ -28,10 +35,14 @@ const deviceSchema = mongoose.Schema(
       enum: ["online", "offline", "unclaimed"],
       default: "unclaimed",
     },
-    pairingToken: {
-      type: String,
+    paired: {
+      type: Boolean,
+      default: false,
     },
-    pairingExpiry: {
+    pairingToken: {
+      type: String, // 6-digit numeric token
+    },
+    tokenExpiresAt: {
       type: Date,
     },
   },

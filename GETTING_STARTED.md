@@ -112,3 +112,17 @@ To access the Admin Dashboard (`/admin-dashboard`):
     );
     ```
 3.  Log out and Log back in. You will now see the "Admin Dashboard" button.
+
+---
+
+## 5. Troubleshooting Flow Algorithm
+
+If the system isn't working as expected, follow this logical sequence to identify the failure point:
+
+1.  **Check Power & USB**: Is the ESP32 LED on? Is it recognized by the browser in the "Add Device" step?
+2.  **Verify Backend**: Is the Node.js server running? Check terminal for `MongoDB Connected`.
+3.  **Validate MQTT**: Are you seeing `Backend connected to MQTT Broker`? Run the **Simulator**—if data appears on the dashboard with the simulator but not the device, the issue is the ESP32's WiFi or Token.
+4.  **Network Isolation**: Are the ESP32 and the Backend on the same network? (If using local IP).
+5.  **Database Audit**: Check the `devices` collection in MongoDB. Does the `companyId` match your `user.companyId`?
+
+---

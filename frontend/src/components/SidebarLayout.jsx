@@ -66,6 +66,9 @@ const SidebarLayout = () => {
                             <Link to="/add-device" style={navItemStyle('/add-device')}>
                                 <span>➕</span> Add Device
                             </Link>
+                            <Link to="/provision-device" style={navItemStyle('/provision-device')}>
+                                <span>🔌</span> Configure Device
+                            </Link>
                         </>
                     )}
                 </nav>
