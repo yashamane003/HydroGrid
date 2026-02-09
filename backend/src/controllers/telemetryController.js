@@ -5,32 +5,37 @@ const Device = require("../models/deviceModel");
 // @route   POST /api/devices/:id/telemetry
 // @access  Device
 const ingestTelemetry = async (req, res) => {
-  // req.device is populated by verifyDevice middleware
-  // Check if :id matches authenticated device
-  if (
-    req.params.id !== req.device.deviceId &&
-    req.params.id !== req.device._id.toString()
-  ) {
-    return res.status(403).json({ message: "Device ID mismatch" });
-  }
+  try {
+    // req.device is populated by verifyDevice middleware
+    if (
+      req.params.id !== req.device.deviceId &&
+      req.params.id !== req.device._id.toString()
+    ) {
+      return res.status(403).json({ message: "Device ID mismatch" });
+    }
 
-  const { ph, tds, temperature, humidity } = req.body;
+    const { ph, tds, temperature, humidity } = req.body;
 
-  const telemetry = await DeviceTelemetry.create({
-    device: req.device._id,
-    company: req.device.company,
-    data: { ph, tds, temperature, humidity },
-  });
+    const telemetry = await DeviceTelemetry.create({
+      device: req.device._id,
+      company: req.device.company,
+      data: { ph, tds, temperature, humidity },
+    });
 
-  if (telemetry) {
-    // Also update the device's "last known state" (optional, for quick dashboard read)
-    // For now, we rely on the telemetry table, but a "current state" cache on the Device model is common.
-    req.device.lastSeen = Date.now();
-    await req.device.save();
+    if (telemetry) {
+      req.device.lastSeen = Date.now();
+      await req.device.save();
 
-    res.status(201).json({ message: "Telemetry received" });
-  } else {
-    res.status(400).json({ message: "Invalid data" });
+      // Trigger Automation
+      const { runAutomation } = require("../services/automationService");
+      runAutomation(req.device, { ph, tds, temperature, humidity });
+
+      res.status(201).json({ message: "Telemetry received" });
+    } else {
+      res.status(400).json({ message: "Invalid data" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -38,50 +43,77 @@ const ingestTelemetry = async (req, res) => {
 // @route   GET /api/devices/:id/telemetry
 // @access  User
 const getLatestTelemetry = async (req, res) => {
-  // Check if device belongs to user's company (Assuming verifyToken middleware runs before)
-  // We need to look up the device first
-  const device = await Device.findOne({
-    $or: [{ deviceId: req.params.id }, { _id: req.params.id }],
-    company: req.user.company,
-  });
+  try {
+    if (!req.user.company) {
+      return res
+        .status(400)
+        .json({ message: "User is not associated with a company." });
+    }
 
-  if (!device) {
-    return res
-      .status(404)
-      .json({ message: "Device not found or not authorized" });
+    const device = await Device.findOne({
+      $or: [{ deviceId: req.params.id }, { _id: req.params.id }],
+      company: req.user.company,
+    });
+
+    if (!device) {
+      return res
+        .status(404)
+        .json({ message: "Device not found or not authorized" });
+    }
+
+    const latest = await DeviceTelemetry.findOne({ device: device._id }).sort({
+      timestamp: -1,
+    });
+
+    const offlineThreshold = 30000;
+    const isOffline =
+      !device.lastSeen || Date.now() - device.lastSeen > offlineThreshold;
+    const currentStatus = isOffline ? "offline" : device.status;
+
+    res.json(
+      latest
+        ? { ...latest.toObject(), status: currentStatus }
+        : { status: currentStatus },
+    );
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  const latest = await DeviceTelemetry.findOne({ device: device._id }).sort({
-    timestamp: -1,
-  });
-
-  res.json(latest || {});
 };
 
 // @desc    Get Historical Telemetry
 // @route   GET /api/devices/:id/telemetry/history
 // @access  User
 const getHistory = async (req, res) => {
-  const limit = parseInt(req.query.limit) || 50;
+  try {
+    if (!req.user.company) {
+      return res
+        .status(400)
+        .json({ message: "User is not associated with a company." });
+    }
 
-  const device = await Device.findOne({
-    $or: [{ deviceId: req.params.id }, { _id: req.params.id }],
-    company: req.user.company,
-  });
+    const limit = parseInt(req.query.limit) || 50;
 
-  if (!device) {
-    return res
-      .status(404)
-      .json({ message: "Device not found or not authorized" });
+    const device = await Device.findOne({
+      $or: [{ deviceId: req.params.id }, { _id: req.params.id }],
+      company: req.user.company,
+    });
+
+    if (!device) {
+      return res
+        .status(404)
+        .json({ message: "Device not found or not authorized" });
+    }
+
+    // Get last N records, sorted ascending for charts
+    const history = await DeviceTelemetry.find({ device: device._id })
+      .sort({ timestamp: -1 })
+      .limit(limit);
+
+    // Reverse to chronological order for the chart
+    res.json(history.reverse());
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  // Get last N records, sorted ascending for charts
-  const history = await DeviceTelemetry.find({ device: device._id })
-    .sort({ timestamp: -1 })
-    .limit(limit);
-
-  // Reverse to chronological order for the chart
-  res.json(history.reverse());
 };
 
 module.exports = { ingestTelemetry, getLatestTelemetry, getHistory };

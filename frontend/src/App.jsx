@@ -8,6 +8,7 @@ import AdminUserDetail from './pages/AdminUserDetail';
 import AddDevice from './pages/AddDevice';
 import ProvisionDevice from './pages/ProvisionDevice';
 import Analytics from './pages/Analytics';
+import Plants from './pages/Plants';
 import SidebarLayout from './components/SidebarLayout';
 import { ProvisionProvider } from './context/ProvisionContext';
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="/admin/users/:id" element={<AdminUserDetail />} />
             <Route path="/add-device" element={<AddDevice />} />
             <Route path="/provision-device" element={<ProvisionDevice />} />
+            <Route path="/plants" element={<Plants />} />
             <Route path="/analytics/:id" element={<Analytics />} />
         </Route>
       </Routes>

@@ -11,6 +11,12 @@ graph TD
     User[User (Browser)] -->|HTTP/React| Frontend[Frontend (Vite + React)]
     Frontend -->|REST API (Axios)| Backend[Backend (Node.js + Express)]
 
+    subgraph "Fluid Layout System"
+        Sidebar[Fixed Sidebar 280px]
+        Content[Fluid Main Content max-1600px]
+        Grid[Responsive Grid min-320px]
+    end
+
     subgraph "Backend Infrastructure"
         Backend -->|Mongoose| DB[(MongoDB Database)]
         Backend -->|Aedes| MQTT[Internal MQTT Broker]
@@ -168,7 +174,18 @@ graph LR
     Broker -- Update lastSeen --> DB[(MongoDB)]
     Monitor{Status Checker} -- Polling --> DB
     Monitor -- "Is lastSeen > 30s?" --> Offline[Set Status: Offline]
+    Offline --> UI[Dashboard/Analytics]
+    UI -- "Display OFFLINE Label" --> User
 ```
+
+#### E. Density Optimization & Fluid UI
+
+- **Goal**: High information density without sacrificing readability.
+- **Implementation**:
+  - **Fixed Sidebar**: Standardized at 260-280px for layout stability.
+  - **Fluid Container**: Max-width of 1600px ensures the app feels expansive on ultra-wide monitors while remaining centered on standard displays.
+  - **Responsive Grid**: Uses `repeat(auto-fill, minmax(320px, 1fr))` to naturally wrap device and plant cards.
+  - **Font Normalization**: 0.875rem (14px) base font is used globally for technical clarity.
 
 ### D. Admin Global Oversight (Multi-Tenant Analytics)
 

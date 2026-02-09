@@ -53,15 +53,15 @@ const DeviceDetails = () => {
     if (loading) return <div className="container">Loading Details...</div>;
 
     return (
-        <div className="container">
+        <div className="container animate-fade-in">
             <button onClick={() => navigate('/dashboard')} className="btn-secondary" style={{ marginBottom: '1rem' }}>
                 &larr; Back to Dashboard
             </button>
             
-            <div className="auth-header">
-                <h1>Device Analytics</h1>
-                <p>ID: {id}</p>
-            </div>
+            <header style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Device Analytics</h1>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 500 }}>ID: {id}</p>
+            </header>
 
             <div style={{ display: 'grid', gap: '2rem' }}>
                 

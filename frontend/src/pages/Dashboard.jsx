@@ -4,186 +4,309 @@ import { useNavigate } from 'react-router-dom';
 import { APP_BASE_URL } from '../config';
 
 const Dashboard = () => {
-    const navigate = useNavigate();
-    const user = JSON.parse(localStorage.getItem('userInfo')) || {};
     const [devices, setDevices] = useState([]);
+    const [plants, setPlants] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    
+    const user = JSON.parse(localStorage.getItem('userInfo')) || {};
+
+    const fetchData = async () => {
+        if (!user.token) return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const [devRes, plantRes] = await Promise.all([
+                axios.get(`${APP_BASE_URL}/api/devices`, config),
+                axios.get(`${APP_BASE_URL}/api/plants`, config)
+            ]);
+            setDevices(devRes.data);
+            setPlants(plantRes.data);
+            setLoading(false);
+        } catch (error) {
+            console.error('Fetch failed:', error);
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchDevices = async () => {
-            try {
-                const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                const { data } = await axios.get(`${APP_BASE_URL}/api/devices`, config);
-                setDevices(data);
-                setLoading(false);
-            } catch (error) {
-                console.error('Fetch devices failed:', error);
-                setLoading(false);
-            }
-        };
-
-        if (user.token) {
-            fetchDevices();
-            const interval = setInterval(fetchDevices, 5000); // Polling every 5 seconds
-            return () => clearInterval(interval);
-        } else {
+        if (!user.token) {
             navigate('/login');
+            return;
         }
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
     }, [user.token, navigate]);
 
+    // Stunning SVG Icons
+    const Icons = {
+        pH: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M5 12h14"/></svg>,
+        Nutrients: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>,
+        Temp: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>,
+        Humidity: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5s-3 3.5-3 5.5a7 7 0 0 0 7 7Z"/></svg>
+    };
+
     return (
-        <div className="container" style={{ padding: '3rem 4rem' }}>
-            {/* Header Section */}
-            <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="container animate-fade-in">
+            <header style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#111827' }}>Dashboard</h1>
-                    <p style={{ fontSize: '1.1rem', color: '#6b7280' }}>Welcome back, {user.name}!</p>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: '0' }}>Live Dashboard</h1>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500, margin: '4px 0 0' }}>Real-time telemetry from your ecosystems</p>
                 </div>
                 <button 
                     onClick={() => navigate('/add-device')}
-                    style={{ 
-                        background: '#3b82f6', 
-                        color: 'white', 
-                        padding: '0.75rem 1.5rem', 
-                        borderRadius: '8px', 
-                        border: 'none', 
-                        fontSize: '1rem', 
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
-                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '12px 24px' }}
                 >
-                    + Add Device
+                    Register New Device
                 </button>
             </header>
 
-            {loading ? <div style={{ textAlign: 'center', padding: '2rem' }}>Loading devices...</div> : (
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 500 }}>
+                    <div className="spinner" style={{ marginBottom: '0.75rem' }}></div>
+                    Syncing with hardware...
+                </div>
+            ) : (
                 <>
+                {/* SYSTEM HEALTH MONITOR */}
+                <div style={{ 
+                    marginBottom: '32px', 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                    gap: '24px' 
+                }}>
+                    <div className="card glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'white' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div>
+                        <div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nodes Online</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{devices.filter(d => d.status === 'online').length}</div>
+                        </div>
+                    </div>
+                    <div className="card glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'white' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#94a3b8' }}></div>
+                        <div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nodes Offline</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{devices.filter(d => d.status !== 'online').length}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="responsive-grid">
                     {devices.length === 0 ? (
-                        /* Empty State */
-                        <div className="card" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', padding: '4rem 2rem' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1.5rem', opacity: 0.5 }}>📱</div>
-                            <h3 style={{ fontSize: '1.5rem', color: '#374151', marginBottom: '1rem' }}>No devices connected yet.</h3>
-                            <p style={{ fontSize: '1rem', color: '#9ca3af', marginBottom: '2rem' }}>
-                                Add your first IoT device to start monitoring and controlling it remotely.
-                            </p>
-                            <button 
-                                onClick={() => navigate('/add-device')}
-                                style={{ background: '#3b82f6', color: 'white', padding: '0.75rem 2rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-                            >
-                                Add Device
-                            </button>
+                        <div className="card glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem 2rem' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}></div>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>No Active Systems</h2>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', maxWidth: '350px', margin: '0 auto 1.5rem' }}>Your dashboard is waiting for its first inhabitant.</p>
+                            <button onClick={() => navigate('/add-device')} className="btn btn-primary">Register Now</button>
                         </div>
                     ) : (
-                        /* Device Grid */
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '2rem' }}>
-                            {devices.map((device) => (
-                                <div 
-                                    key={device._id} 
-                                    className="card" 
-                                    style={{ 
-                                        padding: '0', 
-                                        transition: 'transform 0.2s', 
-                                        cursor: 'pointer',
-                                        position: 'relative'
-                                    }}
-                                    onClick={() => navigate(`/analytics/${device._id}`)}
-                                >
-                                    {/* Delete Button */}
+                        devices.map((device) => (
+                            <div 
+                                key={device._id} 
+                                className="card glass-card" 
+                                style={{ 
+                                    padding: '0', 
+                                    overflow: 'hidden',
+                                    position: 'relative',
+                                    background: 'white',
+                                    border: '1px solid var(--glass-stroke)',
+                                    opacity: device.status === 'online' ? 1 : 0.65,
+                                    filter: device.status === 'online' ? 'none' : 'grayscale(0.4)',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                {/* Header Section */}
+                                <div style={{ 
+                                    padding: '1rem 1.25rem',
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    borderBottom: '1px solid var(--glass-stroke)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.01em' }}>{device.name}</h3>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
+                                                <div className="status-pulse" style={{ 
+                                                    width: '6px', height: '6px', borderRadius: '50%', 
+                                                    background: device.status === 'online' ? 'var(--primary)' : '#94a3b8',
+                                                    '--status-glow': device.status === 'online' ? 'var(--primary-glow)' : 'transparent'
+                                                }}></div>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{device.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (window.confirm('Are you sure you want to delete this device?')) {
-                                                const deleteDev = async () => {
-                                                    try {
-                                                        const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                                                        await axios.delete(`${APP_BASE_URL}/api/devices/${device._id}`, config);
-                                                        setDevices(devices.filter(d => d._id !== device._id));
-                                                    } catch (err) {
-                                                        alert('Failed to delete device');
-                                                    }
-                                                };
-                                                deleteDev();
+                                            if (window.confirm('Dissociate device?')) {
+                                                const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                                axios.delete(`${APP_BASE_URL}/api/devices/${device._id}`, config)
+                                                    .then(() => fetchData());
                                             }
                                         }}
                                         style={{
-                                            position: 'absolute',
-                                            top: '1rem',
-                                            right: '1rem',
-                                            background: '#fee2e2',
-                                            color: '#ef4444',
-                                            border: 'none',
-                                            borderRadius: '50%',
-                                            width: '28px',
-                                            height: '28px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            zIndex: 10
+                                            background: '#f8fafc', color: 'var(--text-muted)', border: '1px solid var(--glass-stroke)',
+                                            padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.65rem',
+                                            fontWeight: 800, cursor: 'pointer'
                                         }}
                                     >
-                                        &times;
+                                        DEL
                                     </button>
+                                </div>
 
-                                    <div style={{ padding: '1.5rem', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <h3 style={{ fontSize: '1.1rem', color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{device.name}</h3>
-                                        <span style={{ 
-                                            padding: '0.25rem 0.6rem', 
-                                            borderRadius: '999px', 
-                                            fontSize: '0.75rem', 
-                                            fontWeight: 600,
-                                            background: device.status === 'online' ? '#d1fae5' : '#f3f4f6',
-                                            color: device.status === 'online' ? '#065f46' : '#6b7280',
-                                            textTransform: 'capitalize'
+                                {/* Telemetry Area */}
+                                <div style={{ padding: '1.25rem' }}>
+                                    {device.latestData ? (() => {
+                                        const selectedPlantData = plants.find(p => p._id === device.selectedPlant);
+                                        const getStatusColor = (val, target, margin) => {
+                                            if (device.status !== 'online') return 'var(--text-muted)';
+                                            if (!target) return 'var(--text-main)';
+                                            return (val > target + margin || val < target - margin) ? 'var(--text-muted)' : 'var(--primary)';
+                                        };
+
+                                        return (
+                                            <div style={{ position: 'relative' }}>
+                                                {device.status !== 'online' && (
+                                                    <div style={{ 
+                                                        position: 'absolute', top: '-10px', right: 0, 
+                                                        fontSize: '0.55rem', fontWeight: 900, color: 'var(--text-muted)',
+                                                        background: 'var(--bg-canvas)', padding: '2px 6px', borderRadius: '4px',
+                                                        letterSpacing: '0.05em', border: '1px solid var(--glass-stroke)', zIndex: 1
+                                                    }}>
+                                                        STALE DATA
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                                    {/* pH BOX */}
+                                                    <div style={{ 
+                                                        padding: '0.85rem', background: 'white', borderRadius: '12px', 
+                                                        border: '1px solid var(--glass-stroke)',
+                                                        boxShadow: 'var(--shadow-inner)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                                            <span style={{ opacity: 0.5, transform: 'scale(0.7)' }}>{Icons.pH}</span>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>pH Level</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: device.status === 'online' ? getStatusColor(device.latestData.ph, selectedPlantData?.targetPh, 0.2) : 'var(--text-muted)', letterSpacing: '-0.01em' }}>
+                                                            {device.status === 'online' ? (device.latestData.ph?.toFixed(1) || '--') : 'OFFLINE'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* NUTRIENTS BOX */}
+                                                    <div style={{ 
+                                                        padding: '0.85rem', background: 'white', borderRadius: '12px', 
+                                                        border: '1px solid var(--glass-stroke)',
+                                                        boxShadow: 'var(--shadow-inner)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                                            <span style={{ opacity: 0.5, transform: 'scale(0.7)' }}>{Icons.Nutrients}</span>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nutrients</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: device.status === 'online' ? getStatusColor(device.latestData.tds, selectedPlantData?.targetTds, 50) : 'var(--text-muted)', letterSpacing: '-0.01em' }}>
+                                                            {device.status === 'online' ? <>{device.latestData.tds?.toFixed(0) || '--'} <small style={{ fontSize: '0.65rem', fontWeight: 600, opacity: 0.6 }}>ppm</small></> : 'OFFLINE'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* TEMPERATURE BOX */}
+                                                    <div style={{ 
+                                                        padding: '0.85rem', background: 'white', borderRadius: '12px', 
+                                                        border: '1px solid var(--glass-stroke)',
+                                                        boxShadow: 'var(--shadow-inner)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                                            <span style={{ opacity: 0.5, transform: 'scale(0.7)' }}>{Icons.Temp}</span>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Temp</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: device.status === 'online' ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                                                            {device.status === 'online' ? (device.latestData.temperature?.toFixed(1) || '--') + '°C' : 'OFFLINE'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* HUMIDITY BOX */}
+                                                    <div style={{ 
+                                                        padding: '0.85rem', background: 'white', borderRadius: '12px', 
+                                                        border: '1px solid var(--glass-stroke)',
+                                                        boxShadow: 'var(--shadow-inner)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                                            <span style={{ opacity: 0.5, transform: 'scale(0.7)' }}>{Icons.Humidity}</span>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Humidity</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: device.status === 'online' ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                                                            {device.status === 'online' ? (device.latestData.humidity?.toFixed(0) || '--') + '%' : 'OFFLINE'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })() : (
+                                        <div style={{ 
+                                            padding: '2rem 1rem', background: 'rgba(248, 250, 252, 0.4)', 
+                                            borderRadius: '12px', border: '1px dashed #e2e8f0', 
+                                            textAlign: 'center', color: 'var(--text-muted)', 
+                                            marginBottom: '1.25rem', fontSize: '0.8rem', fontWeight: 600
                                         }}>
-                                            {device.status}
-                                        </span>
-                                    </div>
-                                    <div style={{ padding: '1.5rem' }}>
-                                        {/* Latest Sensor Values Block */}
-                                        {device.latestData ? (
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.025em' }}>pH Level</div>
-                                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>{device.latestData.ph?.toFixed(1) || '--'}</div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Temp</div>
-                                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>{device.latestData.temperature?.toFixed(1) || '--'}°C</div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.025em' }}>TDS</div>
-                                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>{device.latestData.tds?.toFixed(0) || '--'} <small style={{ fontSize: '0.6rem', color: '#64748b' }}>ppm</small></div>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Hum</div>
-                                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>{device.latestData.humidity?.toFixed(0) || '--'}%</div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ marginBottom: '1.25rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px dotted #cbd5e1', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
-                                                Waiting for sensor data...
-                                            </div>
-                                        )}
+                                            {device.status === 'online' ? 'NO TELEMETRY RECEIVED' : 'OFFLINE - NO SIGNAL'}
+                                        </div>
+                                    )}
 
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                            <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Last Seen</span>
-                                            <span style={{ fontWeight: 500, fontSize: '0.85rem' }}>{device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}</span>
+                                    {/* Automation Selection */}
+                                    <div style={{ 
+                                        padding: '0.85rem', background: 'var(--bg-canvas)', 
+                                        borderRadius: '12px', border: '1px solid var(--glass-stroke)',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Target Plan</span>
                                         </div>
-                                        
-                                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
-                                            <span style={{ color: '#3b82f6', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                Open Analytics & Control <span style={{ marginLeft: '4px' }}>&rarr;</span>
-                                            </span>
-                                        </div>
+                                        <select 
+                                            value={device.selectedPlant || ''}
+                                            onChange={async (e) => {
+                                                const plantId = e.target.value;
+                                                const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                                await axios.put(`${APP_BASE_URL}/api/devices/${device._id}/automation`, { selectedPlant: plantId, automationEnabled: !!plantId }, config);
+                                                fetchData();
+                                            }}
+                                            style={{ 
+                                                width: '100%', padding: '0.55rem 0.65rem', borderRadius: '8px', 
+                                                border: '1px solid var(--glass-stroke)', fontSize: '0.8rem', 
+                                                fontWeight: 700, background: 'white', color: 'var(--text-main)',
+                                                cursor: 'pointer', outline: 'none'
+                                            }}
+                                        >
+                                            <option value="">Manual Control</option>
+                                            {plants.map(p => (
+                                                <option key={p._id} value={p._id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    
+                                    <div 
+                                        onClick={() => navigate(`/analytics/${device._id}`)}
+                                        style={{ 
+                                            marginTop: '1rem', textAlign: 'center', padding: '0.5rem 0 0',
+                                            color: 'var(--primary)', fontWeight: 700, fontSize: '0.75rem',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                                            justifyContent: 'center', gap: '0.35rem',
+                                            borderTop: '1px solid var(--glass-stroke)'
+                                        }}
+                                    >
+                                        Analysis & Analytics &rarr;
                                     </div>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))
                     )}
+                </div>
                 </>
             )}
+            
+            <style>{`
+                @media (max-width: 480px) {
+                    .responsive-grid { grid-template-columns: 1fr !important; }
+                }
+            `}</style>
         </div>
     );
 };

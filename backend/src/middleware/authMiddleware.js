@@ -14,7 +14,7 @@ const protect = async (req, res, next) => {
       req.user = await User.findById(decoded.id).select("-password");
       next();
     } catch (error) {
-      console.error(error);
+      // Silence noisy JWT validation errors in console for cleaner logs
       res.status(401).json({ message: "Not authorized, token failed" });
     }
   }

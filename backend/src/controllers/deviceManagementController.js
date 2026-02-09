@@ -8,38 +8,47 @@ const bcrypt = require("bcryptjs");
 // @route   POST /api/devices
 // @access  Private
 const registerDevice = async (req, res) => {
-  const { name, deviceId } = req.body;
+  try {
+    if (!req.user.company) {
+      return res
+        .status(400)
+        .json({ message: "User is not associated with a company." });
+    }
 
-  const deviceExists = await Device.findOne({ deviceId });
+    const { name, deviceId } = req.body;
+    const deviceExists = await Device.findOne({ deviceId });
 
-  if (deviceExists) {
-    return res.status(400).json({ message: "Device ID already exists" });
-  }
+    if (deviceExists) {
+      return res.status(400).json({ message: "Device ID already exists" });
+    }
 
-  // Generate a random secret
-  const secret = crypto.randomBytes(16).toString("hex");
+    // Generate a random secret
+    const secret = crypto.randomBytes(16).toString("hex");
 
-  // Hash the secret
-  const salt = await bcrypt.genSalt(10);
-  const hashedSecret = await bcrypt.hash(secret, salt);
+    // Hash the secret
+    const salt = await bcrypt.genSalt(10);
+    const hashedSecret = await bcrypt.hash(secret, salt);
 
-  const device = await Device.create({
-    name,
-    deviceId,
-    deviceSecret: hashedSecret,
-    company: req.user.company,
-    status: "offline",
-  });
-
-  if (device) {
-    res.status(201).json({
-      _id: device._id,
-      name: device.name,
-      deviceId: device.deviceId,
-      secret: secret, // Send only once!
+    const device = await Device.create({
+      name,
+      deviceId,
+      deviceSecret: hashedSecret,
+      company: req.user.company,
+      status: "offline",
     });
-  } else {
-    res.status(400).json({ message: "Invalid device data" });
+
+    if (device) {
+      res.status(201).json({
+        _id: device._id,
+        name: device.name,
+        deviceId: device.deviceId,
+        secret: secret, // Send only once!
+      });
+    } else {
+      res.status(400).json({ message: "Invalid device data" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -47,38 +56,39 @@ const registerDevice = async (req, res) => {
 // @route   GET /api/devices
 // @access  Private
 const getMyDevices = async (req, res) => {
-  const devices = await Device.find({ company: req.user.company });
+  try {
+    const devices = await Device.find({ company: req.user.company });
+    const offlineThreshold = 30000;
 
-  const offlineThreshold = 30000; // 30 seconds (down from 60 for better real-time feel)
+    const enrichedDevices = await Promise.all(
+      devices.map(async (device) => {
+        let currentStatus = device.status;
 
-  const enrichedDevices = await Promise.all(
-    devices.map(async (device) => {
-      let currentStatus = device.status;
+        if (
+          device.status === "online" &&
+          (!device.lastSeen || Date.now() - device.lastSeen > offlineThreshold)
+        ) {
+          currentStatus = "offline";
+          device.status = "offline";
+          await device.save();
+        }
 
-      // Check for timeout
-      if (
-        device.status === "online" &&
-        (!device.lastSeen || Date.now() - device.lastSeen > offlineThreshold)
-      ) {
-        currentStatus = "offline";
-        device.status = "offline";
-        await device.save();
-      }
+        const latestTelemetry = await DeviceTelemetry.findOne({
+          device: device._id,
+        }).sort({ timestamp: -1 });
 
-      // Fetch latest telemetry
-      const latestTelemetry = await DeviceTelemetry.findOne({
-        device: device._id,
-      }).sort({ timestamp: -1 });
+        return {
+          ...device.toObject(),
+          status: currentStatus,
+          latestData: latestTelemetry ? latestTelemetry.data : null,
+        };
+      }),
+    );
 
-      return {
-        ...device.toObject(),
-        status: currentStatus,
-        latestData: latestTelemetry ? latestTelemetry.data : null,
-      };
-    }),
-  );
-
-  res.json(enrichedDevices);
+    res.json(enrichedDevices);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // @desc    Claim a device using Pairing Token
@@ -177,4 +187,39 @@ const deleteDevice = async (req, res) => {
   res.json({ message: "Device removed" });
 };
 
-module.exports = { registerDevice, getMyDevices, claimDevice, deleteDevice };
+// @desc    Update Automation Settings
+// @route   PUT /api/devices/:id/automation
+// @access  Private
+const updateAutomation = async (req, res) => {
+  try {
+    const { automationEnabled, selectedPlant } = req.body;
+    const device = await Device.findById(req.params.id);
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+
+    if (device.company?.toString() !== req.user.company?.toString()) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    device.automationEnabled =
+      automationEnabled !== undefined
+        ? automationEnabled
+        : device.automationEnabled;
+    device.selectedPlant = selectedPlant || device.selectedPlant;
+
+    await device.save();
+    res.json(device);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  registerDevice,
+  getMyDevices,
+  claimDevice,
+  deleteDevice,
+  updateAutomation,
+};

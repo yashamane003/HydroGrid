@@ -45,6 +45,14 @@ const deviceSchema = mongoose.Schema(
     tokenExpiresAt: {
       type: Date,
     },
+    automationEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    selectedPlant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Plant",
+    },
   },
   {
     timestamps: true,

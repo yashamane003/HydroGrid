@@ -41,10 +41,12 @@ app.use(limiter); // Applied to routes defined below
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const deviceRoutes = require("./routes/deviceRoutes");
+const plantRoutes = require("./routes/plantRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
 app.use("/api/users", authRoutes);
 app.use("/api/devices", deviceRoutes);
+app.use("/api/plants", plantRoutes);
 app.use("/api/admin", adminRoutes);
 app.get("/", (req, res) => {
   res.send("API is running...");

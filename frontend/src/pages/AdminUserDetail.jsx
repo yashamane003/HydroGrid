@@ -49,14 +49,14 @@ const AdminUserDetail = () => {
     if (loading) return <div style={{ padding: '2rem' }}>Loading user details...</div>;
 
     return (
-        <div className="container" style={{ padding: '3rem 4rem' }}>
+        <div className="container animate-fade-in">
             <button onClick={() => navigate('/admin-dashboard')} style={{ marginBottom: '1rem', border: 'none', background: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '1rem' }}>
                 ← Back to Dashboard
             </button>
 
-            <header style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#111827' }}>{selectedUser.user.name}</h1>
-                <p style={{ color: '#6b7280' }}>User Overview & Activity</p>
+            <header style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{selectedUser.user.name}</h1>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 500 }}>User Overview & Activity</p>
             </header>
 
             <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '2rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>

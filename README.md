@@ -2,6 +2,14 @@
 
 A full-stack IoT application designed to monitor and control hydroponic systems in real-time. This project handles user authentication, multi-tenancy, real-time device telemetry via MQTT, and administrative analytics.
 
+## 🖼️ UI Showcase
+
+![Dashboard Preview](https://via.placeholder.com/1600x900?text=Dashboard+Fluid+Layout+Showcase)
+_The new Fluid Layout expands to fill available horizontal space, using a 280px fixed sidebar and a high-density responsive grid._
+
+![Analytics Preview](https://via.placeholder.com/1600x900?text=Analytics+Live+Telemetry)
+_Real-time charts and summary stats with explicit "OFFLINE" status detection for disconnected devices._
+
 ## 🚀 Technology Stack & Purpose
 
 Here is a breakdown of the technologies used and **why** we chose them:
@@ -146,6 +154,17 @@ To prevent the diaphragm pump from "chattering" (rapidly turning on/off) when th
   - If `pH > (THRESHOLD + MARGIN)`, Turn Pump **ON**.
   - If `pH < (THRESHOLD - MARGIN)`, Turn Pump **OFF**.
   - If `pH` is between `(THRESHOLD - MARGIN)` and `(THRESHOLD + MARGIN)`, **Do Nothing** (Maintain last state).
+
+### 3. Presence & Offline Detection (LWT)
+
+- **Threshold**: 30 Seconds.
+- **Mechanism**: Backend monitors `lastSeen` heartbeat. If exceeded, UI replaces all sensor readings with an **OFFLINE** sentinel to prevent decision-making based on stale data.
+
+### 4. High-Density Fluid Layout
+
+- **Sidebar**: Fixed 280px for standard navigation stability.
+- **Fluid Container**: 100% width up to 1600px ensures zero-waste on ultra-wide displays.
+- **Typography**: Normalized 0.875rem base font for industrial-grade precision.
 
 ---
 

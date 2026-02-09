@@ -79,44 +79,44 @@ const AdminDashboard = () => {
     }, [adminUser.token, period]); // Refetch when period changes
 
     return (
-        <div className="container" style={{ padding: '3rem 4rem' }}>
+        <div className="container animate-fade-in">
             {/* 1. Header */}
-            <header style={{ marginBottom: '3rem' }}>
-                <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#111827' }}>Admin Dashboard</h1>
-                <p style={{ fontSize: '1.1rem', color: '#6b7280' }}>Platform analytics and user overview</p>
+            <header style={{ marginBottom: '24px' }}>
+                <h1 style={{ fontSize: '1.5rem', marginBottom: '4px', color: '#111827', fontWeight: 700 }}>Admin Dashboard</h1>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}>Platform analytics and user overview</p>
             </header>
 
             {loading ? <p>Loading Admin Data...</p> : (
                 <>
                     {/* 2. Analytics Overview Section */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px', marginBottom: '32px' }}>
                         {/* Live Users Card */}
-                        <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                            <h3 style={{ fontSize: '2.5rem', color: '#111827', marginBottom: '0.25rem' }}>{stats.liveUsers}</h3>
-                            <p style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 500 }}>Live Users (1h)</p>
+                        <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
+                            <h3 style={{ fontSize: '2rem', color: '#111827', marginBottom: '4px', fontWeight: 800 }}>{stats.liveUsers}</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Users (1h)</p>
                         </div>
 
                         {/* Registered Users Card */}
-                        <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                            <h3 style={{ fontSize: '2.5rem', color: '#111827', marginBottom: '0.25rem' }}>{stats.registeredUsers}</h3>
-                            <p style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 500 }}>Registered Users</p>
+                        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}>
+                            <h3 style={{ fontSize: '1.6rem', color: '#111827', marginBottom: '0.15rem', fontWeight: 800 }}>{stats.registeredUsers}</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Registered Users</p>
                         </div>
 
                         {/* Total Devices Card */}
-                        <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-                            <h3 style={{ fontSize: '2.5rem', color: '#111827', marginBottom: '0.25rem' }}>{stats.totalDevices}</h3>
-                            <p style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 500 }}>Total Devices</p>
+                        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}>
+                            <h3 style={{ fontSize: '1.6rem', color: '#111827', marginBottom: '0.15rem', fontWeight: 800 }}>{stats.totalDevices}</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Devices</p>
                         </div>
                     </div>
 
-                    {/* 3. Usage Graph Section (New) */}
-                    <div style={{ marginBottom: '3rem', background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h2 style={{ fontSize: '1.25rem', color: '#111827', margin: 0 }}>Growth Overview</h2>
+                    {/* 3. Usage Graph Section */}
+                    <div style={{ marginBottom: '32px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', boxShadow: 'var(--shadow-premium)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ fontSize: '1.1rem', color: '#111827', margin: 0, fontWeight: 700 }}>Growth Overview</h2>
                             <select 
                                 value={period} 
                                 onChange={(e) => setPeriod(e.target.value)}
-                                style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                                style={{ padding: '0.4rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem' }}
                             >
                                 <option value="7d">Last 7 Days</option>
                                 <option value="1m">Last 30 Days</option>
@@ -147,14 +147,14 @@ const AdminDashboard = () => {
 
                     {/* 4. Users List Section */}
                     <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 style={{ fontSize: '1.25rem' }}>Users Overview</h2>
+                        <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Users Overview</h2>
                             <input 
                                 type="text" 
-                                placeholder="Search by name or email..." 
+                                placeholder="Search users..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', width: '300px', fontSize: '0.9rem' }}
+                                style={{ padding: '12px 20px', borderRadius: '8px', border: '1px solid #d1d5db', width: '280px', fontSize: '0.875rem' }}
                             />
                         </div>
                         <div style={{ overflowX: 'auto' }}>

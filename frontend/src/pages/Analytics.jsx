@@ -61,13 +61,8 @@ const Analytics = () => {
 
     // Chart Data Helpers
     const getChartColor = (type) => {
-        switch(type) {
-            case 'ph': return '#10b981';
-            case 'tds': return '#3b82f6';
-            case 'temp': return '#f59e0b';
-            case 'humidity': return '#8b5cf6';
-            default: return '#10b981';
-        }
+        const colors = { ph: '#1e4ed8', tds: '#3b82f6', temp: '#60a5fa', humidity: '#93c5fd' };
+        return colors[type] || '#2563eb';
     };
 
     const getChartDataKey = (type) => `data.${type === 'temp' ? 'temperature' : type}`;
@@ -79,78 +74,56 @@ const Analytics = () => {
     );
 
     return (
-        <div style={{ background: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            
-            {/* Green Top Bar */}
-            <div style={{ background: '#10b981', padding: '1rem 2rem', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <div className="container animate-fade-in">
+            <header style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, color: 'white' }}>Analytics & Control</h1>
-                    <p style={{ margin: 0, opacity: 0.9, fontSize: '0.85rem' }}>Device ID: {id}</p>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0 }}>Analytics & Intelligence</h1>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 500 }}>Node: {id.slice(-6).toUpperCase()}</p>
                 </div>
                 <button 
                     onClick={() => navigate('/dashboard')} 
-                    style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 500 }}
+                    className="btn btn-secondary"
+                    style={{ padding: '12px 24px' }}
                 >
-                    &larr; Dashboard
+                    &larr; Return to Fleet
                 </button>
-            </div>
+            </header>
 
-            <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%', boxSizing: 'border-box', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '0', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 
                 {/* Stats Row */}
                 {latest && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                        <StatCard 
-                            label="pH Level" 
-                            value={latest.data?.ph || '--'} 
-                            sublabel="Current Reading"
-                        />
-                         <StatCard 
-                            label="TDS (ppm)" 
-                            value={latest.data?.tds || '--'} 
-                            sublabel="Water Quality"
-                        />
-                         <StatCard 
-                            label="Temperature" 
-                            value={`${latest.data?.temperature || '--'}°C`} 
-                            sublabel="Environment"
-                        />
-                         <StatCard 
-                            label="Humidity" 
-                            value={`${latest.data?.humidity || '--'}%`} 
-                            sublabel="Ambient"
-                        />
-                    </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '24px' }}>
+                        <StatCard label="pH" value={latest.status === 'online' ? (latest.data?.ph?.toFixed(1) || '--') : 'OFFLINE'} unit="" color="var(--primary)" />
+                        <StatCard label="TDS" value={latest.status === 'online' ? (latest.data?.tds || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "ppm" : ""} color="var(--primary)" />
+                        <StatCard label="W-TEMP" value={latest.status === 'online' ? (latest.data?.temperature || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "°C" : ""} color="var(--primary)" />
+                        <StatCard label="HUMIDITY" value={latest.status === 'online' ? (latest.data?.humidity || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "%" : ""} color="var(--primary)" />
+                </div>
                 )}
 
-                {/* Main Content Area */}
-                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '2rem', flex: 1 }}>
-                    
-                    {/* LEFT: Chart Section */}
-                    <div className="card" style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-                        
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                            <h3 style={{ margin: 0, color: '#374151', fontSize: '1.1rem' }}>Consumption over time</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
+                    <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', display: 'flex', flexDirection: 'column', border: '1px solid var(--glass-stroke)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '16px' }}>
+                            <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem', fontWeight: 700 }}>Telemetry Histogram</h3>
                             
-                            {/* Tabs */}
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-canvas)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--glass-stroke)' }}>
                                 {['ph', 'tds', 'temp', 'humidity'].map(tab => (
                                     <button 
                                         key={tab}
                                         onClick={() => setActiveTab(tab)}
                                         style={{ 
-                                            padding: '0.5rem 1rem', 
-                                            background: activeTab === tab ? '#10b981' : 'white', 
-                                            color: activeTab === tab ? 'white' : '#6b7280',
-                                            border: activeTab === tab ? 'none' : '1px solid #e5e7eb',
-                                            borderRadius: '4px',
+                                            padding: '0.35rem 0.75rem', 
+                                            background: activeTab === tab ? 'white' : 'transparent', 
+                                            color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
+                                            border: activeTab === tab ? '1px solid var(--glass-stroke)' : 'none',
+                                            borderRadius: '6px',
                                             cursor: 'pointer',
-                                            fontWeight: 500,
-                                            textTransform: 'capitalize',
-                                            fontSize: '0.9rem'
+                                            fontWeight: activeTab === tab ? 700 : 600,
+                                            fontSize: '0.7rem',
+                                            boxShadow: activeTab === tab ? 'var(--shadow-sm)' : 'none'
                                         }}
                                     >
-                                        {tab === 'temp' ? 'Temp' : tab}
+                                        {tab === 'temp' ? 'TEMP' : tab.toUpperCase()}
                                     </button>
                                 ))}
                             </div>
@@ -159,11 +132,11 @@ const Analytics = () => {
                         <div style={{ flex: 1, minHeight: '300px' }}>
                              <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={history}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                    <XAxis dataKey="timestamp" tickFormatter={(t) => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} stroke="#9ca3af" axisLine={false} tickLine={false} />
-                                    <YAxis domain={activeTab === 'ph' ? [0, 14] : ['auto', 'auto']} stroke="#9ca3af" axisLine={false} tickLine={false} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-stroke)" />
+                                    <XAxis dataKey="timestamp" tickFormatter={(t) => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} stroke="var(--text-muted)" tick={{fontSize: 9, fontWeight: 700}} axisLine={false} tickLine={false} />
+                                    <YAxis domain={activeTab === 'ph' ? [4, 9] : ['auto', 'auto']} stroke="var(--text-muted)" tick={{fontSize: 9, fontWeight: 700}} axisLine={false} tickLine={false} />
                                     <Tooltip 
-                                        contentStyle={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} 
+                                        contentStyle={{ background: 'white', border: '1px solid var(--glass-stroke)', borderRadius: '8px', boxShadow: 'var(--shadow-premium)', fontSize: '0.75rem' }} 
                                         labelFormatter={(t) => new Date(t).toLocaleString()} 
                                     />
                                     <Line 
@@ -181,42 +154,30 @@ const Analytics = () => {
                     </div>
 
                     {/* RIGHT: Control Panel */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div className="card" style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '1.5rem' }}>
-                            <h3 style={{ margin: '0 0 1.5rem 0', color: '#111827', fontSize: '1rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.75rem' }}>
-                                Quick Actions
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', border: '1px solid var(--glass-stroke)' }}>
+                            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '0.5rem' }}>
+                                System Actuation
                             </h3>
                             
-                            <div style={{ display: 'grid', gap: '1rem' }}>
-                                <button className="btn" style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '6px' }} onClick={() => sendCommand('SET_PH', { target: 6.5 })}>
-                                    Calibrate pH (6.5)
+                            <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                <button className="btn btn-primary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.65rem' }} onClick={() => sendCommand('SET_PH', { target: 6.5 })}>
+                                    Calibrate pH Strategy &rarr;
                                 </button>
-                                <button className="btn" style={{ width: '100%', background: 'white', border: '1px solid #d1d5db', color: '#374151', padding: '0.75rem', borderRadius: '6px' }} onClick={() => sendCommand('DOSE_NUTRIENTS')}>
-                                    Dose Nutrients
+                                <button className="btn" style={{ width: '100%', background: 'white', border: '1px solid var(--glass-stroke)', color: 'var(--text-main)', fontSize: '0.75rem', padding: '0.65rem' }} onClick={() => sendCommand('DOSE_NUTRIENTS')}>
+                                    Dose Concentration
                                 </button>
                             </div>
                         </div>
 
-                        <div className="card" style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '1.5rem' }}>
-                             <h3 style={{ margin: '0 0 1.5rem 0', color: '#111827', fontSize: '1rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.75rem' }}>
-                                Motors
+                        <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', border: '1px solid var(--glass-stroke)' }}>
+                             <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '0.5rem' }}>
+                                Valve Controls
                             </h3>
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div>
-                                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.5rem' }}>Inlet Pump</div>
-                                    <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                        <button style={{ flex: 1, padding: '0.5rem', border: 'none', background: 'white', cursor: 'pointer', borderRight: '1px solid #e5e7eb', color: '#10b981', fontWeight: 600 }} onClick={() => sendCommand('MOTOR_IN_ON')}>ON</button>
-                                        <button style={{ flex: 1, padding: '0.5rem', border: 'none', background: '#f9fafb', cursor: 'pointer', color: '#6b7280' }} onClick={() => sendCommand('MOTOR_IN_OFF')}>OFF</button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.5rem' }}>Outlet Pump</div>
-                                    <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                        <button style={{ flex: 1, padding: '0.5rem', border: 'none', background: 'white', cursor: 'pointer', borderRight: '1px solid #e5e7eb', color: '#10b981', fontWeight: 600 }} onClick={() => sendCommand('MOTOR_OUT_ON')}>ON</button>
-                                        <button style={{ flex: 1, padding: '0.5rem', border: 'none', background: '#f9fafb', cursor: 'pointer', color: '#6b7280' }} onClick={() => sendCommand('MOTOR_OUT_OFF')}>OFF</button>
-                                    </div>
-                                </div>
+                                <MotorControl label="Primary Inlet" onOn={() => sendCommand('MOTOR_IN_ON')} onOff={() => sendCommand('MOTOR_IN_OFF')} />
+                                <MotorControl label="Secondary Outlet" onOn={() => sendCommand('MOTOR_OUT_ON')} onOff={() => sendCommand('MOTOR_OUT_OFF')} />
                             </div>
                         </div>
 
@@ -228,11 +189,23 @@ const Analytics = () => {
 };
 
 // UI Components
-const StatCard = ({ label, value, sublabel }) => (
-    <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <h4 style={{ margin: '0 0 0.5rem 0', color: '#6b7280', fontSize: '0.9rem', fontWeight: 500 }}>{label}</h4>
-        <div style={{ fontSize: '2rem', fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.5rem' }}>{sublabel}</div>
+const StatCard = ({ label, value, unit, color }) => (
+    <div className="card glass-card" style={{ padding: '0.85rem 1rem', border: '1px solid var(--glass-stroke)' }}>
+        <h4 style={{ margin: '0 0 0.35rem 0', color: 'var(--text-muted)', fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.05em' }}>{label}</h4>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem' }}>
+            <div style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-main)' }}>{value}</div>
+            {unit && <small style={{ fontSize: '0.65rem', fontWeight: 500, color: 'var(--text-muted)' }}>{unit}</small>}
+        </div>
+    </div>
+);
+
+const MotorControl = ({ label, onOn, onOff }) => (
+    <div>
+        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+        <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--glass-stroke)', background: 'var(--bg-canvas)' }}>
+            <button style={{ flex: 1, padding: '0.45rem', border: 'none', background: 'transparent', cursor: 'pointer', borderRight: '1px solid var(--glass-stroke)', color: 'var(--primary)', fontWeight: 700, fontSize: '0.7rem' }} onClick={onOn}>Engage</button>
+            <button style={{ flex: 1, padding: '0.45rem', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.7rem' }} onClick={onOff}>Idle</button>
+        </div>
     </div>
 );
 

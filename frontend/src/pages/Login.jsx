@@ -82,7 +82,7 @@ const Login = () => {
                 </div>
                 
                 {/* Demo Login Section */}
-                <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+                <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-stroke)' }}>
                     <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 500 }}>Demo Login</p>
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         <button 
