@@ -1,16 +1,30 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { APP_BASE_URL } from '../config';
 
 const SidebarLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [plantCount, setPlantCount] = useState(0);
     
     const userInfo = JSON.parse(localStorage.getItem('userInfo')) || { name: 'User' };
 
-    const handleLogout = () => {
-        localStorage.removeItem('userInfo');
-        navigate('/login');
+    const handleLogout = async () => {
+        try {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            if (userInfo && userInfo.token) {
+                await axios.post(`${APP_BASE_URL}/api/users/logout`, {}, {
+                    headers: { Authorization: `Bearer ${userInfo.token}` }
+                });
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            localStorage.removeItem('userInfo');
+            navigate('/login');
+        }
     };
 
     const isActive = (path) => location.pathname === path;
@@ -18,6 +32,21 @@ const SidebarLayout = () => {
     useEffect(() => {
         setIsMobileMenuOpen(false);
     }, [location.pathname]);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (userInfo.token) {
+                try {
+                    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+                    const { data } = await axios.get(`${APP_BASE_URL}/api/plants`, config);
+                    setPlantCount(data.length);
+                } catch (error) {
+                    console.error('Sidebar fetch error:', error);
+                }
+            }
+        };
+        fetchStats();
+    }, [userInfo.token]);
 
     const navItemStyle = (path) => ({
         display: 'flex',
@@ -145,12 +174,13 @@ const SidebarLayout = () => {
                                 Provisioning
                             </Link>
 
-                            <div style={categoryHeaderStyle}>Resources</div>
-                            <Link to="/plants" style={navItemStyle('/plants')}>
-                                Plant Library
-                            </Link>
                         </>
                     )}
+
+                    <div style={categoryHeaderStyle}>Resources</div>
+                    <Link to="/plants" style={navItemStyle('/plants')}>
+                        Plant Library
+                    </Link>
                 </nav>
 
                 <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
@@ -161,6 +191,8 @@ const SidebarLayout = () => {
                             <span style={{ fontSize: '0.55rem', color: 'var(--sidebar-text)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active</span>
                         </div>
                     </div>
+
+
 
                     <button 
                         onClick={handleLogout} 

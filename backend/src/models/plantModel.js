@@ -21,12 +21,19 @@ const plantSchema = mongoose.Schema(
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
-      required: true,
+      required: false,
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
+    },
+    usage: {
+      type: String,
+    },
+    isSystem: {
+      type: Boolean,
+      default: false,
     },
   },
   {

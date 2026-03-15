@@ -53,10 +53,25 @@ const Analytics = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
             await axios.post(`${APP_BASE_URL}/api/devices/${id}/commands`, { command, payload }, config);
-            alert(`Command '${command}' sent!`);
+            // Re-fetch latest to update UI immediately
+            const { data: last } = await axios.get(`${APP_BASE_URL}/api/devices/${id}/telemetry`, config);
+            setLatest(last);
         } catch (error) {
-            alert('Failed to send command: ' + (error.response?.data?.message || error.message));
+            console.error('Failed to send command:', error.response?.data?.message || error.message);
         }
+    };
+
+    const motorAction = (motorKey, action) => {
+        // action is 'ON' or 'OFF'
+        let key = motorKey.toUpperCase();
+        // Handle special mapping if needed (phup -> PH_UP)
+        if (key === 'PHUP') key = 'PH_UP';
+        if (key === 'PHDOWN') key = 'PH_DOWN';
+        if (key === 'NUTRIENTA') key = 'NUTRIENT_A';
+        if (key === 'NUTRIENTB') key = 'NUTRIENT_B';
+        
+        const command = `MOTOR_${key}_${action}`;
+        sendCommand(command);
     };
 
     // Chart Data Helpers
@@ -172,12 +187,16 @@ const Analytics = () => {
 
                         <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', border: '1px solid var(--glass-stroke)' }}>
                              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '0.5rem' }}>
-                                Valve Controls
+                                Motor Actuation
                             </h3>
                             
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <MotorControl label="Primary Inlet" onOn={() => sendCommand('MOTOR_IN_ON')} onOff={() => sendCommand('MOTOR_IN_OFF')} />
-                                <MotorControl label="Secondary Outlet" onOn={() => sendCommand('MOTOR_OUT_ON')} onOff={() => sendCommand('MOTOR_OUT_OFF')} />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <MotorControl label="Inlet Pump" status={latest?.motorInStatus} onOn={() => motorAction('in', 'ON')} onOff={() => motorAction('in', 'OFF')} disabled={latest?.status !== 'online'} />
+                                <MotorControl label="Outlet Pump" status={latest?.motorOutStatus} onOn={() => motorAction('out', 'ON')} onOff={() => motorAction('out', 'OFF')} disabled={latest?.status !== 'online'} />
+                                <MotorControl label="pH Up (Base)" status={latest?.motorPhUpStatus} onOn={() => motorAction('phup', 'ON')} onOff={() => motorAction('phup', 'OFF')} disabled={latest?.status !== 'online'} />
+                                <MotorControl label="pH Down (Acid)" status={latest?.motorPhDownStatus} onOn={() => motorAction('phdown', 'ON')} onOff={() => motorAction('phdown', 'OFF')} disabled={latest?.status !== 'online'} />
+                                <MotorControl label="Nutrient A" status={latest?.motorNutrientAStatus} onOn={() => motorAction('nutrienta', 'ON')} onOff={() => motorAction('nutrienta', 'OFF')} disabled={latest?.status !== 'online'} />
+                                <MotorControl label="Nutrient B" status={latest?.motorNutrientBStatus} onOn={() => motorAction('nutrientb', 'ON')} onOff={() => motorAction('nutrientb', 'OFF')} disabled={latest?.status !== 'online'} />
                             </div>
                         </div>
 
@@ -199,12 +218,48 @@ const StatCard = ({ label, value, unit, color }) => (
     </div>
 );
 
-const MotorControl = ({ label, onOn, onOff }) => (
-    <div>
-        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-        <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--glass-stroke)', background: 'var(--bg-canvas)' }}>
-            <button style={{ flex: 1, padding: '0.45rem', border: 'none', background: 'transparent', cursor: 'pointer', borderRight: '1px solid var(--glass-stroke)', color: 'var(--primary)', fontWeight: 700, fontSize: '0.7rem' }} onClick={onOn}>Engage</button>
-            <button style={{ flex: 1, padding: '0.45rem', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.7rem' }} onClick={onOff}>Idle</button>
+const MotorControl = ({ label, status, onOn, onOff, disabled }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--glass-stroke)' }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 600 }}>{label}</div>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button 
+                disabled={disabled}
+                onClick={onOn}
+                style={{ 
+                    padding: '0.45rem 0.75rem', 
+                    borderRadius: '6px', 
+                    border: '1px solid var(--glass-stroke)',
+                    background: status === 'ON' ? 'var(--primary)' : 'white',
+                    color: status === 'ON' ? 'white' : 'var(--text-muted)',
+                    fontWeight: 700,
+                    fontSize: '0.6rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: disabled ? 0.5 : 1,
+                    minWidth: '50px'
+                }}
+            >
+                ON
+            </button>
+            <button 
+                disabled={disabled}
+                onClick={onOff}
+                style={{ 
+                    padding: '0.45rem 0.75rem', 
+                    borderRadius: '6px', 
+                    border: '1px solid var(--glass-stroke)',
+                    background: status === 'OFF' ? '#64748b' : 'white',
+                    color: status === 'OFF' ? 'white' : 'var(--text-muted)',
+                    fontWeight: 700,
+                    fontSize: '0.6rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: disabled ? 0.5 : 1,
+                    minWidth: '50px'
+                }}
+            >
+                OFF
+            </button>
         </div>
     </div>
 );

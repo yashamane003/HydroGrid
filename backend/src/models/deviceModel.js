@@ -53,6 +53,36 @@ const deviceSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Plant",
     },
+    motorInStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
+    motorOutStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
+    motorPhUpStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
+    motorPhDownStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
+    motorNutrientAStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
+    motorNutrientBStatus: {
+      type: String,
+      enum: ["ON", "OFF"],
+      default: "OFF",
+    },
   },
   {
     timestamps: true,

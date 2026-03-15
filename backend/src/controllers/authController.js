@@ -21,6 +21,7 @@ const authUser = async (req, res) => {
 
   if (user && (await user.matchPassword(password))) {
     user.lastLogin = Date.now();
+    user.status = "active";
     await user.save();
 
     res.json({
@@ -150,4 +151,19 @@ const setupAdmin = async (req, res) => {
   }
 };
 
-module.exports = { authUser, registerUser, setupAdmin };
+// @desc    Logout user & clear status
+// @route   POST /api/users/logout
+// @access  Private
+const logoutUser = async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    user.status = "inactive";
+    await user.save();
+    res.json({ message: "Logged out successfully" });
+  } else {
+    res.status(404).json({ message: "User not found" });
+  }
+};
+
+module.exports = { authUser, registerUser, setupAdmin, logoutUser };

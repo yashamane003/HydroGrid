@@ -19,7 +19,21 @@ const {
   getHistory,
 } = require("../controllers/telemetryController");
 const { provisionDevice } = require("../controllers/provisionController");
-const { sendCommand } = require("../controllers/commandController");
+const {
+  sendCommand,
+  motorInOn,
+  motorInOff,
+  motorOutOn,
+  motorOutOff,
+  motorPhUpOn,
+  motorPhUpOff,
+  motorPhDownOn,
+  motorPhDownOff,
+  motorNutrientAOn,
+  motorNutrientAOff,
+  motorNutrientBOn,
+  motorNutrientBOff,
+} = require("../controllers/commandController");
 const { protect } = require("../middleware/authMiddleware");
 const { protectDevice } = require("../middleware/deviceAuthMiddleware");
 
@@ -39,6 +53,18 @@ router.get("/:id/telemetry", protect, getLatestTelemetry);
 router.get("/:id/telemetry/history", protect, getHistory);
 router.post("/:id/telemetry", protectDevice, ingestTelemetry);
 router.post("/:id/commands", protect, sendCommand);
+router.post("/:id/motor/in/on", protect, motorInOn);
+router.post("/:id/motor/in/off", protect, motorInOff);
+router.post("/:id/motor/out/on", protect, motorOutOn);
+router.post("/:id/motor/out/off", protect, motorOutOff);
+router.post("/:id/motor/phup/on", protect, motorPhUpOn);
+router.post("/:id/motor/phup/off", protect, motorPhUpOff);
+router.post("/:id/motor/phdown/on", protect, motorPhDownOn);
+router.post("/:id/motor/phdown/off", protect, motorPhDownOff);
+router.post("/:id/motor/nutrienta/on", protect, motorNutrientAOn);
+router.post("/:id/motor/nutrienta/off", protect, motorNutrientAOff);
+router.post("/:id/motor/nutrientb/on", protect, motorNutrientBOn);
+router.post("/:id/motor/nutrientb/off", protect, motorNutrientBOff);
 router.put("/:id/automation", protect, updateAutomation);
 
 module.exports = router;

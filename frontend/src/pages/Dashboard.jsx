@@ -239,6 +239,28 @@ const Dashboard = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* PUMP STATUS BADGES */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                                                    {[
+                                                        { label: 'Inlet', status: device.motorInStatus },
+                                                        { label: 'Outlet', status: device.motorOutStatus },
+                                                        { label: 'pH Up', status: device.motorPhUpStatus },
+                                                        { label: 'pH Down', status: device.motorPhDownStatus },
+                                                        { label: 'Nutrient A', status: device.motorNutrientAStatus },
+                                                        { label: 'Nutrient B', status: device.motorNutrientBStatus }
+                                                    ].map((m, idx) => (
+                                                        <div key={idx} style={{ 
+                                                            padding: '0.4rem', borderRadius: '8px', 
+                                                            background: m.status === 'ON' ? 'rgba(56, 189, 248, 0.1)' : 'var(--bg-canvas)',
+                                                            border: `1px solid ${m.status === 'ON' ? 'var(--primary)' : 'var(--glass-stroke)'}`,
+                                                            textAlign: 'center'
+                                                        }}>
+                                                            <div style={{ fontSize: '0.5rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{m.label}</div>
+                                                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: m.status === 'ON' ? 'var(--primary)' : 'var(--text-main)' }}>{m.status || 'OFF'}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         );
                                     })() : (
@@ -281,19 +303,25 @@ const Dashboard = () => {
                                             ))}
                                         </select>
                                     </div>
-                                    
-                                    <div 
-                                        onClick={() => navigate(`/analytics/${device._id}`)}
-                                        style={{ 
-                                            marginTop: '1rem', textAlign: 'center', padding: '0.5rem 0 0',
-                                            color: 'var(--primary)', fontWeight: 700, fontSize: '0.75rem',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                                            justifyContent: 'center', gap: '0.35rem',
-                                            borderTop: '1px solid var(--glass-stroke)'
-                                        }}
-                                    >
-                                        Analysis & Analytics &rarr;
+
+                                    {/* Analytics entry point */}
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <button 
+                                            onClick={() => navigate(`/analytics/${device._id}`)}
+                                            style={{ 
+                                                width: '100%', padding: '0.75rem', borderRadius: '8px', 
+                                                border: '1px solid var(--primary)', background: 'rgba(56, 189, 248, 0.05)', 
+                                                color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, 
+                                                cursor: 'pointer', transition: 'all 0.2s ease',
+                                                display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.background = 'rgba(56, 189, 248, 0.1)'}
+                                            onMouseOut={(e) => e.target.style.background = 'rgba(56, 189, 248, 0.05)'}
+                                        >
+                                            View Full Analytics &rarr;
+                                        </button>
                                     </div>
+                                    
                                 </div>
                             </div>
                         ))

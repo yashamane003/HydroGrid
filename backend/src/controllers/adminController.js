@@ -1,5 +1,7 @@
 const User = require("../models/userModel");
 const Device = require("../models/deviceModel");
+const Plant = require("../models/plantModel");
+const DeviceTelemetry = require("../models/telemetryModel");
 
 // @desc    Get admin analytics stats
 // @route   GET /api/admin/analytics
@@ -78,16 +80,28 @@ const getAnalytics = async (req, res) => {
       };
     });
 
-    // Total Users
-    const totalUsers = await User.countDocuments({});
+    // Total Users (Excluding Admins)
+    const totalUsers = await User.countDocuments({ role: { $ne: "admin" } });
 
     // Total Devices
     const totalDevices = await Device.countDocuments({});
+
+    // Count users using system plants
+    const systemPlants = await Plant.find({ isSystem: true }).select("_id");
+    const systemPlantIds = systemPlants.map((p) => p._id);
+
+    // Find unique user IDs from devices that reference these system plants
+    const systemPlantUsers = await Device.distinct("userId", {
+      selectedPlant: { $in: systemPlantIds },
+    });
+
+    const systemPlantUserCount = systemPlantUsers.length;
 
     res.json({
       liveUsers,
       registeredUsers: totalUsers,
       totalDevices,
+      systemPlantUsers: systemPlantUserCount,
       graphData: stats,
     });
   } catch (error) {
@@ -101,7 +115,7 @@ const getAnalytics = async (req, res) => {
 // @access  Private/Admin
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find({})
+    const users = await User.find({ role: { $ne: "admin" } })
       .select("-password") // Exclude password
       .sort({ createdAt: -1 });
 
@@ -126,19 +140,24 @@ const getUserDetails = async (req, res) => {
       throw new Error("User not found");
     }
 
-    // Fetch User's Devices
+    // Fetch User's Devices and populate selected plant
     let devices = [];
     if (user.company) {
-      devices = await Device.find({ company: user.company._id });
+      devices = await Device.find({ company: user.company._id }).populate(
+        "selectedPlant",
+      );
     }
 
-    // Mock Activity Data (Past 12 Months App Usage/Login)
+    // Fetch User's (Company's) Plants
+    let plants = [];
+    if (user.company) {
+      plants = await Plant.find({ company: user.company._id });
+    }
+
     // Real Activity Data (Last 7 Days Telemetry Count)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const DeviceTelemetry = require("../models/telemetryModel");
 
     // Get device IDs belonging to this user's company
     const deviceIds = devices.map((d) => d._id);
@@ -177,6 +196,7 @@ const getUserDetails = async (req, res) => {
     res.json({
       user,
       devices,
+      plants,
       activity,
     });
   } catch (error) {

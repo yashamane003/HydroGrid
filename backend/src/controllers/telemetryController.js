@@ -24,6 +24,7 @@ const ingestTelemetry = async (req, res) => {
 
     if (telemetry) {
       req.device.lastSeen = Date.now();
+      req.device.status = "online";
       await req.device.save();
 
       // Trigger Automation
@@ -66,15 +67,21 @@ const getLatestTelemetry = async (req, res) => {
     });
 
     const offlineThreshold = 30000;
-    const isOffline =
-      !device.lastSeen || Date.now() - device.lastSeen > offlineThreshold;
-    const currentStatus = isOffline ? "offline" : device.status;
-
-    res.json(
-      latest
-        ? { ...latest.toObject(), status: currentStatus }
-        : { status: currentStatus },
+    const isOnline = !!(
+      device.lastSeen && Date.now() - device.lastSeen < offlineThreshold
     );
+
+    res.json({
+      ...(latest ? latest.toObject() : {}),
+      status: isOnline ? "online" : "offline",
+      isOnline,
+      motorInStatus: device.motorInStatus,
+      motorOutStatus: device.motorOutStatus,
+      motorPhUpStatus: device.motorPhUpStatus,
+      motorPhDownStatus: device.motorPhDownStatus,
+      motorNutrientAStatus: device.motorNutrientAStatus,
+      motorNutrientBStatus: device.motorNutrientBStatus,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

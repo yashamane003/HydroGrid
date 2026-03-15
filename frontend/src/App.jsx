@@ -16,7 +16,13 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route path="/" element={
+          (() => {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            if (!userInfo) return <Navigate to="/login" />;
+            return userInfo.role === 'admin' ? <Navigate to="/admin-dashboard" /> : <Navigate to="/dashboard" />;
+          })()
+        } />
         
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />

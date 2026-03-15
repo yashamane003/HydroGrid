@@ -1,20 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { APP_BASE_URL } from '../config';
 
-const SYSTEM_TEMPLATES = [
-    { name: "Lettuce (Butterhead)", targetPh: 6.0, targetTds: 600, targetTemp: 20 },
-    { name: "Basil (Genovese)", targetPh: 6.2, targetTds: 800, targetTemp: 22 },
-    { name: "Tomato (Cherry)", targetPh: 6.5, targetTds: 1500, targetTemp: 24 },
-    { name: "Spinach", targetPh: 6.0, targetTds: 1200, targetTemp: 18 },
-    { name: "Strawberry", targetPh: 5.8, targetTds: 900, targetTemp: 21 },
-    { name: "Kale (Curly)", targetPh: 6.3, targetTds: 1100, targetTemp: 19 },
-    { name: "Peppers (Bell)", targetPh: 6.2, targetTds: 1400, targetTemp: 25 },
-    { name: "Mint (Peppermint)", targetPh: 6.5, targetTds: 700, targetTemp: 21 },
-    { name: "Cucumber", targetPh: 6.0, targetTds: 1300, targetTemp: 23 },
-    { name: "Coriander", targetPh: 6.5, targetTds: 750, targetTemp: 20 },
-];
+// SYSTEM_TEMPLATES now fetched from DB for admins
 
 const Plants = () => {
     const navigate = useNavigate();
@@ -24,9 +13,10 @@ const Plants = () => {
     const [showPlantModal, setShowPlantModal] = useState(false);
     const [editingPlantId, setEditingPlantId] = useState(null);
     
-    const [formData, setFormData] = useState({ name: '', targetPh: '', targetTds: '', targetTemp: '' });
+    const [formData, setFormData] = useState({ name: '', targetPh: '', targetTds: '', targetTemp: '', usage: '', isSystem: false });
 
-    const fetchPlants = async () => {
+    const fetchPlants = useCallback(async () => {
+        if (!user.token) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${APP_BASE_URL}/api/plants`, config);
@@ -36,7 +26,7 @@ const Plants = () => {
             console.error('Fetch plants failed:', error);
             setLoading(false);
         }
-    };
+    }, [user.token]);
 
     useEffect(() => {
         if (user.token) {
@@ -44,7 +34,7 @@ const Plants = () => {
         } else {
             navigate('/login');
         }
-    }, [user.token, navigate]);
+    }, [fetchPlants, navigate, user.token]);
 
     const handleOpenModal = (plant = null) => {
         if (plant) {
@@ -53,11 +43,13 @@ const Plants = () => {
                 name: plant.name,
                 targetPh: plant.targetPh,
                 targetTds: plant.targetTds,
-                targetTemp: plant.targetTemp
+                targetTemp: plant.targetTemp,
+                usage: plant.usage || '',
+                isSystem: plant.isSystem || false
             });
         } else {
             setEditingPlantId(null);
-            setFormData({ name: '', targetPh: '', targetTds: '', targetTemp: '' });
+            setFormData({ name: '', targetPh: '', targetTds: '', targetTemp: '', usage: '', isSystem: false });
         }
         setShowPlantModal(true);
     };
@@ -74,6 +66,7 @@ const Plants = () => {
             setShowPlantModal(false);
             fetchPlants();
         } catch (error) {
+            console.error('Save plant failed:', error);
             alert('Failed to save plant');
         }
     };
@@ -85,25 +78,29 @@ const Plants = () => {
                 await axios.delete(`${APP_BASE_URL}/api/plants/${id}`, config);
                 fetchPlants();
             } catch (error) {
+                console.error('Delete plant failed:', error);
                 alert('Failed to delete plant');
             }
         }
     };
 
-    const handleUseTemplate = async (template) => {
-        try {
-            const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`${APP_BASE_URL}/api/plants`, {
-                name: template.name,
-                targetPh: template.targetPh,
-                targetTds: template.targetTds,
-                targetTemp: template.targetTemp
-            }, config);
-            fetchPlants();
-        } catch (error) {
-            alert('Failed to add template');
-        }
+    const handleUseTemplate = (tmpl) => {
+        setEditingPlantId(null);
+        setFormData({
+            name: `${tmpl.name} Profile`,
+            targetPh: tmpl.targetPh,
+            targetTds: tmpl.targetTds,
+            targetTemp: tmpl.targetTemp,
+            usage: tmpl.usage || '',
+            isSystem: false
+        });
+        setShowPlantModal(true);
     };
+
+
+
+    const customPlants = plants.filter(p => !p.isSystem);
+    const systemTemplates = plants.filter(p => p.isSystem);
 
     return (
         <div className="container animate-fade-in">
@@ -112,13 +109,15 @@ const Plants = () => {
                     <h1 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700, letterSpacing: '-0.02em', margin: '0' }}>Ecosystem Profiles</h1>
                     <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500, margin: '4px 0 0' }}>Target parameters for optimal cultivation</p>
                 </div>
-                <button 
-                    onClick={() => handleOpenModal()}
-                    className="btn btn-primary"
-                    style={{ padding: '12px 24px' }}
-                >
-                    Define New Species
-                </button>
+                {user.role === 'admin' && (
+                    <button 
+                        onClick={() => handleOpenModal()}
+                        className="btn btn-primary"
+                        style={{ padding: '12px 24px' }}
+                    >
+                        Define New Species
+                    </button>
+                )}
             </header>
 
             {loading ? (
@@ -128,123 +127,120 @@ const Plants = () => {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
                     
-                    {/* CUSTOM PLANTS SECTION */}
-                    <section>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            Custom Definitions
-                        </h2>
-                        <div className="responsive-grid">
-                            {plants.length === 0 ? (
-                                <div className="card glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem 2rem' }}>
-                                    <p style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 600 }}>Library is empty.</p>
-                                </div>
-                            ) : (
-                                plants.map(plant => {
-                                    /* ICON HELPERS */
-                                    const Icons = {
-                                        pH: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M5 12h14"/></svg>,
-                                        TDS: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>,
-                                        TEMP: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
-                                    };
-
-                                    return (
-                                    <div key={plant._id} className="card glass-card plant-card-hover" style={{ padding: '1.25rem', border: '1px solid var(--glass-stroke)', position: 'relative', background: 'white' }}>
+                    {/* USER CUSTOM ECOSYSTEMS SECTION */}
+                    {customPlants.length > 0 && (
+                        <section style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px' }}>
+                                    User Created Plants
+                                </h2>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>Personal profiles specific to your company's genetic library</p>
+                            </div>
+                            <div className="responsive-grid">
+                                {customPlants.map((tmpl) => (
+                                    <div key={tmpl._id} className="card glass-card" style={{ padding: '1.25rem', border: '1px solid var(--glass-stroke)', position: 'relative', background: 'white' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                                             <div>
-                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{plant.name}</h3>
-                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>Custom Configuration</div>
+                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{tmpl.name}</h3>
+                                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>User-Created Blueprint</div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '8px 0 0', fontStyle: 'italic', lineHeight: '1.4' }}>{tmpl.usage}</p>
                                             </div>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button
-                                                    onClick={() => handleOpenModal(plant)}
+                                                    onClick={() => handleOpenModal(tmpl)}
                                                     style={{ background: '#f8fafc', border: '1px solid var(--glass-stroke)', color: 'var(--text-main)', padding: '0.35rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 800 }}
                                                 >EDIT</button>
                                                 <button 
-                                                    onClick={() => handleDeletePlant(plant._id)}
+                                                    onClick={() => handleDeletePlant(tmpl._id)}
                                                     style={{ background: '#f8fafc', border: '1px solid var(--glass-stroke)', color: 'var(--text-muted)', padding: '0.35rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 800 }}
                                                 >DEL</button>
                                             </div>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                                            <div style={{ padding: '0.75rem 0.5rem', background: 'var(--bg-canvas)', borderRadius: '10px', border: '1px solid var(--glass-stroke)', textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                                                    {Icons.pH}
-                                                    <span style={{ fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>pH</span>
-                                                </div>
-                                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--primary)' }}>{plant.targetPh}</div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>pH</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetPh}</div>
                                             </div>
-                                            <div style={{ padding: '0.75rem 0.5rem', background: 'var(--bg-canvas)', borderRadius: '10px', border: '1px solid var(--glass-stroke)', textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                                                    {Icons.TDS}
-                                                    <span style={{ fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TDS</span>
-                                                </div>
-                                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--primary)' }}>{plant.targetTds}</div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TDS</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTds}</div>
                                             </div>
-                                            <div style={{ padding: '0.75rem 0.5rem', background: 'var(--bg-canvas)', borderRadius: '10px', border: '1px solid var(--glass-stroke)', textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                                                    {Icons.TEMP}
-                                                    <span style={{ fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TEMP</span>
-                                                </div>
-                                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--primary)' }}>{plant.targetTemp}<span style={{ fontSize: '0.75em' }}>°C</span></div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TEMP</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTemp}°</div>
                                             </div>
                                         </div>
                                     </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </section>
-
-
-
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     {/* SYSTEM PRESETS SECTION */}
                     <section style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-                        <div style={{ marginBottom: '16px' }}>
-                            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                System Meta-Templates
-                            </h2>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>Verified configurations for industrial-grade hydroponics</p>
-                        </div>
-                        <div className="responsive-grid">
-                            {SYSTEM_TEMPLATES.map((tmpl, idx) => (
-                                <div key={idx} className="card glass-card" style={{ padding: '1.25rem', border: '1px solid var(--glass-stroke)', position: 'relative', background: 'white' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                                        <div>
-                                            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{tmpl.name}</h3>
-                                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>Standard Preset</div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    System Meta-Templates
+                                </h2>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>Verified configurations for industrial-grade hydroponics</p>
+                            </div>
+                            <div className="responsive-grid">
+                                {systemTemplates.map((tmpl) => (
+                                    <div key={tmpl._id} className="card glass-card" style={{ padding: '1.25rem', border: '1px solid var(--glass-stroke)', position: 'relative', background: 'white' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                            <div>
+                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{tmpl.name}</h3>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '0.15rem' }}>
+                                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Global Meta-Template</div>
+                                                    {user.role === 'admin' && (
+                                                        <div style={{ fontSize: '0.65rem', background: '#f0fdf4', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #dcfce7' }}>
+                                                            {tmpl.userCount || 0} Users
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '8px 0 0', fontStyle: 'italic', lineHeight: '1.4' }}>{tmpl.usage}</p>
+                                            </div>
+                                            {user.role === 'admin' && (
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button
+                                                        onClick={() => handleOpenModal(tmpl)}
+                                                        style={{ background: '#f8fafc', border: '1px solid var(--glass-stroke)', color: 'var(--text-main)', padding: '0.35rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 800 }}
+                                                    >EDIT</button>
+                                                    <button 
+                                                        onClick={() => handleDeletePlant(tmpl._id)}
+                                                        style={{ background: '#f8fafc', border: '1px solid var(--glass-stroke)', color: 'var(--text-muted)', padding: '0.35rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 800 }}
+                                                    >DEL</button>
+                                                </div>
+                                            )}
                                         </div>
-                                        <button 
-                                            onClick={() => handleUseTemplate(tmpl)}
-                                            style={{ 
-                                                background: 'var(--bg-canvas)', color: 'var(--primary)', border: '1px solid var(--glass-stroke)', 
-                                                padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.65rem', 
-                                                fontWeight: 800, cursor: 'pointer'
-                                            }}
-                                        >
-                                            CLONE
-                                        </button>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>pH</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetPh}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TDS</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTds}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TEMP</div>
+                                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTemp}°</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: '1.25rem', display: 'flex', gap: '8px' }}>
+                                            <button 
+                                                onClick={() => handleUseTemplate(tmpl)}
+                                                className="btn btn-primary"
+                                                style={{ flex: 1, padding: '0.5rem', fontSize: '0.7rem', fontWeight: 800 }}
+                                            >ADOPT PROFILE</button>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>pH</div>
-                                            <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetPh}</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TDS</div>
-                                            <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTds}</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: '0.55rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>TEMP</div>
-                                            <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{tmpl.targetTemp}°</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                                ))}
+                            </div>
+                        </section>
                 </div>
             )}
+
 
             {showPlantModal && (
                 <div className="modal-overlay">
@@ -275,10 +271,28 @@ const Plants = () => {
                                 <label className="form-label" style={{ fontSize: '0.65rem', marginBottom: '0.35rem' }}>TARGET TEMPERATURE (°C)</label>
                                 <input className="form-input" type="number" step="0.1" required value={formData.targetTemp} onChange={e => setFormData({...formData, targetTemp: e.target.value})} />
                             </div>
+                            <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                <label className="form-label" style={{ fontSize: '0.65rem', marginBottom: '0.35rem' }}>USAGE / DESCRIPTION</label>
+                                <textarea className="form-input" value={formData.usage} onChange={e => setFormData({...formData, usage: e.target.value})} placeholder="Describe how this plant is used..." style={{ resize: 'vertical', minHeight: '80px' }} />
+                            </div>
+                            
+                            {user.role === 'admin' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="isSystem" 
+                                        checked={formData.isSystem} 
+                                        onChange={e => setFormData({...formData, isSystem: e.target.checked})} 
+                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="isSystem" style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer' }}>Global Meta-Template (Visible to all Admins)</label>
+                                </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                                 <button type="button" onClick={() => setShowPlantModal(false)} className="btn" style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.85rem' }}>Discard</button>
                                 <button className="btn btn-primary" type="submit" style={{ flex: 1.5, fontSize: '0.85rem' }}>
-                                    {editingPlantId ? 'Save Changes' : 'Create Profile'}
+                                    {editingPlantId ? 'Save Changes' : (formData.isSystem ? 'Create Blueprint' : 'Create Profile')}
                                 </button>
                             </div>
                         </form>

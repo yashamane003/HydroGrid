@@ -25,8 +25,13 @@ String companyId = "";
 String currentToken = "";
 
 // PINS
-#define MOTOR_IN_PIN 26
-#define MOTOR_OUT_PIN 27
+#define MOTOR_INLET_PIN       22
+#define MOTOR_OUTLET_PIN      23
+#define MOTOR_PH_UP_PIN       18
+#define MOTOR_PH_DOWN_PIN     19
+#define MOTOR_NUTRIENT_A_PIN  25
+#define MOTOR_NUTRIENT_B_PIN  26
+
 #define TDS_PIN 35
 #define PH_PIN  34
 #define DHTPIN  4
@@ -89,15 +94,15 @@ void checkSerialCommands() {
     String input = Serial.readStringUntil('\n');
     input.trim();
     
-    // Simple Manual Debug Commands
+    // Simple Manual Debug Commands (Updated for 6 motors)
     if (input == "ON") {
-      digitalWrite(MOTOR_IN_PIN, LOW);
-      Serial.println(">>> Manual Trigger: ON (Pin 26 LOW)");
+      digitalWrite(MOTOR_INLET_PIN, LOW);
+      Serial.println(">>> Manual Trigger: INLET ON (Pin 22 LOW)");
       return;
     }
     if (input == "OFF") {
-      digitalWrite(MOTOR_IN_PIN, HIGH);
-      Serial.println(">>> Manual Trigger: OFF (Pin 26 HIGH)");
+      digitalWrite(MOTOR_INLET_PIN, HIGH);
+      Serial.println(">>> Manual Trigger: INLET OFF (Pin 22 HIGH)");
       return;
     }
 
@@ -191,17 +196,41 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (cmd == NULL) return;
 
   if (String(cmd) == "MOTOR_IN_ON") {
-    digitalWrite(MOTOR_IN_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_IN PIN 26 -> LOW (ON)");
+    digitalWrite(MOTOR_INLET_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_IN PIN 22 -> LOW (ON)");
   } else if (String(cmd) == "MOTOR_IN_OFF") {
-    digitalWrite(MOTOR_IN_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_IN PIN 26 -> HIGH (OFF)");
+    digitalWrite(MOTOR_INLET_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_IN PIN 22 -> HIGH (OFF)");
   } else if (String(cmd) == "MOTOR_OUT_ON") {
-    digitalWrite(MOTOR_OUT_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_OUT PIN 27 -> LOW (ON)");
+    digitalWrite(MOTOR_OUTLET_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_OUT PIN 23 -> LOW (ON)");
   } else if (String(cmd) == "MOTOR_OUT_OFF") {
-    digitalWrite(MOTOR_OUT_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_OUT PIN 27 -> HIGH (OFF)");
+    digitalWrite(MOTOR_OUTLET_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_OUT PIN 23 -> HIGH (OFF)");
+  } else if (String(cmd) == "MOTOR_PHUP_ON") {
+    digitalWrite(MOTOR_PH_UP_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_PHUP PIN 18 -> LOW (ON)");
+  } else if (String(cmd) == "MOTOR_PHUP_OFF") {
+    digitalWrite(MOTOR_PH_UP_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_PHUP PIN 18 -> HIGH (OFF)");
+  } else if (String(cmd) == "MOTOR_PHDOWN_ON") {
+    digitalWrite(MOTOR_PH_DOWN_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_PHDOWN PIN 19 -> LOW (ON)");
+  } else if (String(cmd) == "MOTOR_PHDOWN_OFF") {
+    digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_PHDOWN PIN 19 -> HIGH (OFF)");
+  } else if (String(cmd) == "MOTOR_NUTRIENTA_ON") {
+    digitalWrite(MOTOR_NUTRIENT_A_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_NUTRIENTA PIN 25 -> LOW (ON)");
+  } else if (String(cmd) == "MOTOR_NUTRIENTA_OFF") {
+    digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_NUTRIENTA PIN 25 -> HIGH (OFF)");
+  } else if (String(cmd) == "MOTOR_NUTRIENTB_ON") {
+    digitalWrite(MOTOR_NUTRIENT_B_PIN, LOW);
+    Serial.println(">>> Physical Action: MOTOR_NUTRIENTB PIN 26 -> LOW (ON)");
+  } else if (String(cmd) == "MOTOR_NUTRIENTB_OFF") {
+    digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
+    Serial.println(">>> Physical Action: MOTOR_NUTRIENTB PIN 26 -> HIGH (OFF)");
   }
 }
 
@@ -262,14 +291,26 @@ void setup() {
   Serial.println("\n--- ESP32 STARTUP ---");
 
   // Robust Pin Setup
-  pinMode(MOTOR_IN_PIN, OUTPUT); 
-  pinMode(MOTOR_OUT_PIN, OUTPUT);
+  pinMode(MOTOR_INLET_PIN, OUTPUT); 
+  pinMode(MOTOR_OUTLET_PIN, OUTPUT);
+  pinMode(MOTOR_PH_UP_PIN, OUTPUT);
+  pinMode(MOTOR_PH_DOWN_PIN, OUTPUT);
+  pinMode(MOTOR_NUTRIENT_A_PIN, OUTPUT);
+  pinMode(MOTOR_NUTRIENT_B_PIN, OUTPUT);
   
-  // STARTUP TEST: Blink the relay once to verify hardware
-  Serial.println(">>> Hardware Test: Blinking Pump Pin 26 for 1 second...");
-  digitalWrite(MOTOR_IN_PIN, LOW);   // ON
+  // Set all pins HIGH (OFF for active-low relays usually)
+  digitalWrite(MOTOR_INLET_PIN, HIGH);
+  digitalWrite(MOTOR_OUTLET_PIN, HIGH);
+  digitalWrite(MOTOR_PH_UP_PIN, HIGH);
+  digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
+  digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
+  digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
+  
+  // STARTUP TEST: Blink the inlet pump once to verify hardware
+  Serial.println(">>> Hardware Test: Blinking Inlet Pump Pin 22 for 1 second...");
+  digitalWrite(MOTOR_INLET_PIN, LOW);   // ON
   delay(1000);
-  digitalWrite(MOTOR_IN_PIN, HIGH);  // OFF
+  digitalWrite(MOTOR_INLET_PIN, HIGH);  // OFF
   Serial.println(">>> Startup Blink Complete.");
 
   analogReadResolution(12);

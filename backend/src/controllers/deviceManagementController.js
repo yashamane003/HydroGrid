@@ -62,16 +62,10 @@ const getMyDevices = async (req, res) => {
 
     const enrichedDevices = await Promise.all(
       devices.map(async (device) => {
-        let currentStatus = device.status;
-
-        if (
-          device.status === "online" &&
-          (!device.lastSeen || Date.now() - device.lastSeen > offlineThreshold)
-        ) {
-          currentStatus = "offline";
-          device.status = "offline";
-          await device.save();
-        }
+        const isOnline = !!(
+          device.lastSeen && Date.now() - device.lastSeen < offlineThreshold
+        );
+        const currentStatus = isOnline ? "online" : "offline";
 
         const latestTelemetry = await DeviceTelemetry.findOne({
           device: device._id,

@@ -156,6 +156,8 @@ const getDeviceStatus = async (req, res) => {
   hmac.update(mac);
   const deviceId = hmac.digest("hex");
 
+  console.log(`[StatusCheck] MAC: ${mac} -> Derived ID: ${deviceId}`);
+
   const device = await Device.findOne({ deviceId });
 
   if (!device) {
@@ -163,6 +165,9 @@ const getDeviceStatus = async (req, res) => {
   }
 
   if (device.paired) {
+    device.lastSeen = Date.now();
+    device.status = "online";
+    await device.save();
     return res.json({
       state: "PAIRED",
       deviceId: device.deviceId,

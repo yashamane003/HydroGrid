@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+import { APP_BASE_URL } from '../config';
+
 const DeviceDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [device, setDevice] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         const userInfo = localStorage.getItem('userInfo');
         if (!userInfo) {
             navigate('/login');
@@ -22,33 +23,23 @@ const DeviceDetails = () => {
             headers: { Authorization: `Bearer ${user.token}` },
         };
 
-        const fetchData = async () => {
-            try {
-                // 1. Get Device Details/Metadata (We might need a specific endpoint or just filter from list)
-                // For now, we'll hit the list and filter, or add a specific GET /devices/:id endpoint later.
-                // Or we can rely on the history endpoint to confirm access.
-                
-                // 2. Get History
-                const { data: historyData } = await axios.get(`http://localhost:5000/api/devices/${id}/telemetry/history?limit=20`, config);
-                setHistory(historyData);
-                
-                // Mock device name if we don't have a single-device endpoint yet, 
-                // or assume access is good if history returns.
-                setDevice({ deviceId: id }); 
+        try {
+            // 1. Get History
+            const { data: historyData } = await axios.get(`${APP_BASE_URL}/api/devices/${id}/telemetry/history?limit=20`, config);
+            setHistory(historyData);
+            setLoading(false);
+        } catch (error) {
+            console.error("Error fetching details", error);
+            setLoading(false);
+        }
+    }, [id, navigate]);
 
-                setLoading(false);
-            } catch (error) {
-                console.error("Error fetching details", error);
-                setLoading(false);
-            }
-        };
-
+    useEffect(() => {
         fetchData();
         // Poll every 10 seconds
         const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-
-    }, [id, navigate]);
+    }, [fetchData]);
 
     if (loading) return <div className="container">Loading Details...</div>;
 

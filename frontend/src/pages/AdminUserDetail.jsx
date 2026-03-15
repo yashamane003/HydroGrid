@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { APP_BASE_URL } from '../config';
 
 const AdminUserDetail = () => {
     const { id } = useParams();
@@ -14,27 +15,28 @@ const AdminUserDetail = () => {
         const fetchUserDetails = async () => {
             try {
                 const config = { headers: { Authorization: `Bearer ${adminUser.token}` } };
-                const { data } = await axios.get(`http://localhost:5000/api/admin/users/${id}`, config);
+                const { data } = await axios.get(`${APP_BASE_URL}/api/admin/users/${id}`, config);
                 setSelectedUser(data);
                 setLoading(false);
             } catch (error) {
+                console.error('Fetch user details failed:', error);
                 alert('Failed to fetch user details');
                 navigate('/admin-dashboard');
             }
         };
 
-        if (adminUser.role === 'admin') {
+        if (adminUser.role === 'admin' && adminUser.token) {
             fetchUserDetails();
-        } else {
+        } else if (adminUser.role && adminUser.role !== 'admin') {
             navigate('/dashboard');
         }
-    }, [id, adminUser, navigate]);
+    }, [id, adminUser.token, adminUser.role, navigate]);
 
     const handleRemoveDevice = async (deviceId) => {
         if (!window.confirm('Are you sure you want to remove this device?')) return;
         try {
             const config = { headers: { Authorization: `Bearer ${adminUser.token}` } };
-            await axios.delete(`http://localhost:5000/api/admin/devices/${deviceId}`, config);
+            await axios.delete(`${APP_BASE_URL}/api/admin/devices/${deviceId}`, config);
             
             // Update local state
             setSelectedUser(prev => ({
@@ -98,7 +100,18 @@ const AdminUserDetail = () => {
                     <ul style={{ listStyle: 'none', padding: 0 }}>
                         {selectedUser.devices.map(dev => (
                             <li key={dev._id} style={{ padding: '1rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 500 }}>{dev.name || dev.deviceId}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{dev.name || dev.deviceId}</span>
+                                    {dev.selectedPlant ? (
+                                        <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700, marginTop: '2px' }}>
+                                            Active Profile: {dev.selectedPlant.name}
+                                        </span>
+                                    ) : (
+                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                                            No Profile Active
+                                        </span>
+                                    )}
+                                </div>
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                     <span style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', background: dev.status === 'online' ? '#d1fae5' : '#f3f4f6', borderRadius: '999px', color: dev.status === 'online' ? '#065f46' : '#374151' }}>
                                         {dev.status}
@@ -114,7 +127,26 @@ const AdminUserDetail = () => {
                         ))}
                     </ul>
                 ) : (
-                    <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No devices registered.</p>
+                    <p style={{ color: '#6b7280', fontStyle: 'italic', padding: '1rem' }}>No devices registered.</p>
+                )}
+
+                <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', marginTop: '3rem' }}>User's Plant Library ({selectedUser?.plants?.length || 0})</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem', fontWeight: 500 }}>Private ecosystem definitions specific to this user's company.</p>
+                {selectedUser?.plants?.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                        {selectedUser.plants.map(p => (
+                            <div key={p._id} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>{p.name}</h4>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontWeight: 700 }}>pH: {p.targetPh}</span>
+                                    <span style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem', background: '#f0fdf4', color: '#166534', borderRadius: '4px', fontWeight: 700 }}>TDS: {p.targetTds}</span>
+                                </div>
+                                {p.usage && <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0.75rem 0 0 0', fontStyle: 'italic' }}>{p.usage}</p>}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No custom plants defined.</p>
                 )}
             </div>
         </div>

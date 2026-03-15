@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { APP_BASE_URL } from '../config';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const adminUser = JSON.parse(localStorage.getItem('userInfo')) || {};
-    const [stats, setStats] = useState({ liveUsers: 0, registeredUsers: 0, totalDevices: 0, graphData: [] });
+    const [stats, setStats] = useState({ liveUsers: 0, registeredUsers: 0, totalDevices: 0, systemPlantUsers: 0, graphData: [] });
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('7d');
@@ -61,8 +62,8 @@ const AdminDashboard = () => {
                 };
 
                 // Fetch analytics with period and users separately
-                const statsRes = await axios.get(`http://localhost:5000/api/admin/analytics?period=${period}`, config);
-                const usersRes = await axios.get('http://localhost:5000/api/admin/users', config);
+                const statsRes = await axios.get(`${APP_BASE_URL}/api/admin/analytics?period=${period}`, config);
+                const usersRes = await axios.get(`${APP_BASE_URL}/api/admin/users`, config);
                 
                 setStats(statsRes.data);
                 setUsers(usersRes.data);
@@ -106,6 +107,12 @@ const AdminDashboard = () => {
                         <div className="card" style={{ padding: '1rem', textAlign: 'center' }}>
                             <h3 style={{ fontSize: '1.6rem', color: '#111827', marginBottom: '0.15rem', fontWeight: 800 }}>{stats.totalDevices}</h3>
                             <p style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Devices</p>
+                        </div>
+
+                        {/* System Plant Usage Card */}
+                        <div className="card" style={{ padding: '1rem', textAlign: 'center', border: '1px solid #e0f2fe', background: '#f0f9ff' }}>
+                            <h3 style={{ fontSize: '1.6rem', color: '#0369a1', marginBottom: '0.15rem', fontWeight: 800 }}>{stats.systemPlantUsers || 0}</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#0c4a6e', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Meta-Template Users</p>
                         </div>
                     </div>
 
@@ -188,9 +195,17 @@ const AdminDashboard = () => {
                                                     {u.role}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '1rem 1.5rem' }}>
-                                                <span style={{ color: '#10b981', fontWeight: 500, fontSize: '0.9rem' }}>Active</span>
-                                            </td>
+                                             <td style={{ padding: '1rem 1.5rem' }}>
+                                                <span style={{ 
+                                                    color: u.status === 'active' ? '#10b981' : '#6b7280', 
+                                                    fontWeight: 600, 
+                                                    fontSize: '0.85rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em'
+                                                }}>
+                                                    {u.status === 'active' ? 'Active' : 'Inactive'}
+                                                </span>
+                                             </td>
                                             <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
                                                 {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
                                             </td>
