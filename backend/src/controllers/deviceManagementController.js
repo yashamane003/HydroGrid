@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Device = require("../models/deviceModel");
 const Company = require("../models/companyModel");
 const DeviceTelemetry = require("../models/telemetryModel");
@@ -57,30 +58,55 @@ const registerDevice = async (req, res) => {
 // @access  Private
 const getMyDevices = async (req, res) => {
   try {
-    const devices = await Device.find({ company: req.user.company });
+    const companyId = req.user.company;
+    const userId = req.user._id;
+
+    console.log(`Querying devices for company: ${companyId}`);
+
+    const devices = await Device.find({
+      $or: [
+        { company: companyId },
+        { userId: userId }
+      ]
+    });
+
+    res.set('X-Debug-Device-Count', devices.length.toString());
     const offlineThreshold = 30000;
 
     const enrichedDevices = await Promise.all(
       devices.map(async (device) => {
-        const isOnline = !!(
-          device.lastSeen && Date.now() - device.lastSeen < offlineThreshold
-        );
-        const currentStatus = isOnline ? "online" : "offline";
+        try {
+          const isOnline = !!(
+            device.lastSeen && Date.now() - device.lastSeen < offlineThreshold
+          );
+          const currentStatus = isOnline ? "online" : "offline";
 
-        const latestTelemetry = await DeviceTelemetry.findOne({
-          device: device._id,
-        }).sort({ timestamp: -1 });
+          let latestTelemetry = null;
+          try {
+            latestTelemetry = await DeviceTelemetry.findOne({
+              device: device._id,
+            }).sort({ timestamp: -1 });
+          } catch (telemetryErr) {
+            console.error(`Telemetry error for ${device._id}:`, telemetryErr.message);
+          }
 
-        return {
-          ...device.toObject(),
-          status: currentStatus,
-          latestData: latestTelemetry ? latestTelemetry.data : null,
-        };
+          const deviceData = device.toObject ? device.toObject() : device;
+
+          return {
+            ...deviceData,
+            status: currentStatus,
+            latestData: latestTelemetry ? latestTelemetry.data : null,
+          };
+        } catch (err) {
+          console.error(`Error enriching device ${device._id}:`, err.message);
+          return device.toObject ? device.toObject() : device;
+        }
       }),
     );
 
     res.json(enrichedDevices);
   } catch (error) {
+    console.error("GET DEVICES ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };

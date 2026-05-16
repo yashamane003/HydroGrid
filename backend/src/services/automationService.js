@@ -6,76 +6,9 @@ const mqtt = require("mqtt");
 const mqttClient = mqtt.connect("mqtt://localhost:1883");
 
 const runAutomation = async (device, telemetryData) => {
-  if (!device.automationEnabled || !device.selectedPlant) return;
-
-  try {
-    const plant = await Plant.findById(device.selectedPlant);
-    if (!plant) return;
-
-    const { ph, tds } = telemetryData;
-    const { targetPh, targetTds } = plant;
-    const marginPh = 0.2;
-    const marginTds = 50;
-
-    // pH Automation
-    if (ph > targetPh + marginPh) {
-      await sendAutomationCommand(
-        device,
-        "MOTOR_PH_DOWN_ON",
-        "pH too high (Basicity), turning on pH-Down (Acid) pump",
-      );
-    } else if (ph < targetPh - marginPh) {
-      await sendAutomationCommand(
-        device,
-        "MOTOR_PH_UP_ON",
-        "pH too low (Acidity), turning on pH-Up (Base) pump",
-      );
-    } else {
-      // Balanced
-      if (device.motorPhUpStatus === "ON")
-        await sendAutomationCommand(
-          device,
-          "MOTOR_PH_UP_OFF",
-          "pH balanced, turning off pH-Up pump",
-        );
-      if (device.motorPhDownStatus === "ON")
-        await sendAutomationCommand(
-          device,
-          "MOTOR_PH_DOWN_OFF",
-          "pH balanced, turning off pH-Down pump",
-        );
-    }
-
-    // TDS Automation (Nutrients)
-    if (tds < targetTds - marginTds) {
-      await sendAutomationCommand(
-        device,
-        "MOTOR_NUTRIENT_A_ON",
-        "TDS too low, turning on Nutrient A pump",
-      );
-      await sendAutomationCommand(
-        device,
-        "MOTOR_NUTRIENT_B_ON",
-        "TDS too low, turning on Nutrient B pump",
-      );
-    } else if (tds >= targetTds) {
-      // Turn off once we reach target (or within margin)
-      if (device.motorNutrientAStatus === "ON")
-        await sendAutomationCommand(
-          device,
-          "MOTOR_NUTRIENT_A_OFF",
-          "TDS reached target, turning off nutrient pumps",
-        );
-      if (device.motorNutrientBStatus === "ON")
-        await sendAutomationCommand(
-          device,
-          "MOTOR_NUTRIENT_B_OFF",
-          "TDS reached target, turning off nutrient pumps",
-        );
-    }
-  } catch (error) {
-    console.error("Automation Error:", error);
-  }
+  // Continuous automation is DISABLED per the new One-Time Control Architecture.
+  // The system only monitors by default. Dosing is triggered manually via START_CONTROL.
+  return;
 };
 
 const sendAutomationCommand = async (device, command, reason) => {
@@ -95,6 +28,21 @@ const sendAutomationCommand = async (device, command, reason) => {
     payload: { source: "automation", reason },
     status: "sent",
   });
+
+  // Update Device state based on command
+  if (command === "MOTOR_IN_ON") device.motorInStatus = "ON";
+  if (command === "MOTOR_IN_OFF") device.motorInStatus = "OFF";
+  if (command === "MOTOR_OUT_ON") device.motorOutStatus = "ON";
+  if (command === "MOTOR_OUT_OFF") device.motorOutStatus = "OFF";
+  if (command === "MOTOR_PHUP_ON") device.motorPhUpStatus = "ON";
+  if (command === "MOTOR_PHUP_OFF") device.motorPhUpStatus = "OFF";
+  if (command === "MOTOR_PHDOWN_ON") device.motorPhDownStatus = "ON";
+  if (command === "MOTOR_PHDOWN_OFF") device.motorPhDownStatus = "OFF";
+  if (command === "MOTOR_NUTRIENTA_ON") device.motorNutrientAStatus = "ON";
+  if (command === "MOTOR_NUTRIENTA_OFF") device.motorNutrientAStatus = "OFF";
+  if (command === "MOTOR_NUTRIENTB_ON") device.motorNutrientBStatus = "ON";
+  if (command === "MOTOR_NUTRIENTB_OFF") device.motorNutrientBStatus = "OFF";
+  await device.save();
 
   mqttClient.publish(topic, message, { qos: 1 });
   console.log(`[Automation] Sent ${command} to ${device.deviceId}: ${reason}`);

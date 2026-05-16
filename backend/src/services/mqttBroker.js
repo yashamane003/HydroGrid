@@ -54,6 +54,8 @@ aedes.on("publish", async function (packet, client) {
 
         device.lastSeen = new Date();
         device.status = "online";
+        if (payload.controlState !== undefined) device.controlState = payload.controlState;
+        if (payload.waterLevelCm !== undefined) device.waterLevelCm = payload.waterLevelCm;
         await device.save();
 
         // Trigger Automation for MQTT Telemetry

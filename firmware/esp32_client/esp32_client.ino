@@ -1,37 +1,37 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>    // Install "ArduinoJson"
-#include <PubSubClient.h>   // Install "PubSubClient"
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
 #include <Preferences.h>
-#include <DHT.h>            // Install "DHT sensor library"
+#include <DHT.h>
 
 Preferences preferences;
 
 // ======================= CONFIGURATION =======================
-String ssid = "";
-String password = "";
-String backendUrl = ""; 
+String ssid = "Sujal";
+String password = "12345678";
+String backendUrl = "http://10.177.0.121:5000";
 
-// MQTT Settings
-String mqttIp = "";
-const int mqttPort = 1883; 
+// Ensure this matches the IP of the backend
+String mqttIp = "10.177.0.121"; 
+const int mqttPort = 1883;
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Device Info
 String deviceMac;
 String deviceId = "";
-String companyId = ""; 
-String currentToken = "";
+String companyId = "";
 
-// PINS
-#define MOTOR_INLET_PIN       22
-#define MOTOR_OUTLET_PIN      23
-#define MOTOR_PH_UP_PIN       18
-#define MOTOR_PH_DOWN_PIN     19
-#define MOTOR_NUTRIENT_A_PIN  25
-#define MOTOR_NUTRIENT_B_PIN  26
+// ======================= MOTOR PINS =======================
+#define MOTOR_IN_PIN         22
+#define MOTOR_OUT_PIN        23
+#define MOTOR_PH_UP_PIN      18
+#define MOTOR_PH_DOWN_PIN    19
+#define MOTOR_NUTRIENT_A_PIN 25
+#define MOTOR_NUTRIENT_B_PIN 26
 
+// ======================= SENSOR PINS =======================
 #define TDS_PIN 35
 #define PH_PIN  34
 #define DHTPIN  4
@@ -39,309 +39,346 @@ String currentToken = "";
 
 DHT dht(DHTPIN, DHTTYPE);
 
-// SENSOR CALIBRATION
+// ======================= CALIBRATION =======================
 #define VREF 3.3
 #define ADC_RES 4095.0
 float ph_m = -6.41;
 float ph_b = 18.62;
 
-// STATES
+// ======================= AUTOMATION TARGETS =======================
+const float TARGET_PH_MIN = 5.5;
+const float TARGET_PH_MAX = 6.5;
+const float TARGET_TDS_MIN = 1000.0;
+const unsigned long DOSE_DURATION = 10000; // 10 seconds
+const unsigned long MIX_WAIT_DURATION = 60000; // 60 seconds
+
+// ======================= ONE-TIME CONTROL STATES =======================
+enum ControlState {
+  MONITOR_ONLY,
+  CONTROL_PH,
+  WAIT_AFTER_PH,
+  CONTROL_TDS,
+  WAIT_AFTER_TDS
+};
+
+ControlState controlState = MONITOR_ONLY;
+unsigned long stateStartTime = 0;
+bool currentlyDosing = false;
+
+// ======================= STATES =======================
 enum DeviceState { STATE_UNCLAIMED, STATE_PAIRING, STATE_PAIRED };
 DeviceState currentState = STATE_UNCLAIMED;
 
-// TIMING
+// ======================= TIMING =======================
 unsigned long lastStatusCheck = 0;
 const unsigned long STATUS_INTERVAL = 5000;
 unsigned long lastTelemetryTime = 0;
-const unsigned long TELEMETRY_INTERVAL = 5000; 
+const unsigned long TELEMETRY_INTERVAL = 5000;
 
-// ======================= FUNCTIONS =======================
-
-void loadConfig() {
-  preferences.begin("esp-config", true);
-  String s = preferences.getString("ssid", "");
-  String p = preferences.getString("pass", "");
-  String u = preferences.getString("url", "");
-  preferences.end();
-  
-  // Only overwrite if we found something in memory
-  if (s != "") ssid = s;
-  if (p != "") password = p;
-  if (u != "") backendUrl = u;
-
-  if (backendUrl != "") {
-    int start = backendUrl.indexOf("//") + 2;
-    int end = backendUrl.lastIndexOf(":");
-    if (end > start) mqttIp = backendUrl.substring(start, end);
-    else mqttIp = backendUrl.substring(start);
-  }
-  Serial.println("Final Config: SSID=" + ssid + ", URL=" + backendUrl);
-}
-
-void saveConfig(String newSsid, String newPass, String newUrl) {
-  preferences.begin("esp-config", false);
-  preferences.putString("ssid", newSsid);
-  preferences.putString("pass", newPass);
-  preferences.putString("url", newUrl);
-  preferences.end();
-  Serial.println("Config Saved! Restarting...");
-  delay(1000);
-  ESP.restart();
-}
-
-void checkSerialCommands() {
-  if (Serial.available()) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
-    
-    // Simple Manual Debug Commands (Updated for 6 motors)
-    if (input == "ON") {
-      digitalWrite(MOTOR_INLET_PIN, LOW);
-      Serial.println(">>> Manual Trigger: INLET ON (Pin 22 LOW)");
-      return;
-    }
-    if (input == "OFF") {
-      digitalWrite(MOTOR_INLET_PIN, HIGH);
-      Serial.println(">>> Manual Trigger: INLET OFF (Pin 22 HIGH)");
-      return;
-    }
-
-    if (input.startsWith("{")) {
-      DynamicJsonDocument doc(512);
-      if (!deserializeJson(doc, input)) {
-        String cmd = doc["cmd"];
-        if (cmd == "SET_CONFIG") {
-            saveConfig(doc["ssid"], doc["pass"], doc["url"]);
-        } else if (cmd == "GET_INFO") {
-            Serial.println("{\"mac\":\"" + WiFi.macAddress() + "\"}");
-        }
-      }
-    }
-  }
-}
-
+// ======================= WIFI =======================
 void connectToWiFi() {
   if (ssid == "" || WiFi.status() == WL_CONNECTED) return;
-  Serial.print("Connecting to WiFi: " + ssid);
+
+  Serial.println("Connecting to WiFi...");
   WiFi.begin(ssid.c_str(), password.c_str());
+
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500); Serial.print(".");
-    checkSerialCommands();
+    delay(500);
+    Serial.print(".");
     attempts++;
   }
+
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
+    Serial.println("\nWiFi Connected");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\nWiFi Failed.");
+    Serial.println("\nWiFi Failed");
   }
 }
 
+// ======================= STATUS =======================
 void checkStatus() {
   if (WiFi.status() != WL_CONNECTED || backendUrl == "") return;
+
   HTTPClient http;
   http.begin(backendUrl + "/api/esp/status?mac=" + deviceMac);
   int code = http.GET();
+
   if (code == 200) {
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, http.getString());
+
     String state = doc["state"].as<String>();
+
     if (state == "PAIRED") {
       currentState = STATE_PAIRED;
       deviceId = doc["deviceId"].as<String>();
       companyId = doc["company"].as<String>();
-      Serial.println("PAIRED | CID:" + companyId + " | DID:" + deviceId);
-    } else if (state == "PAIRING") {
-      currentState = STATE_PAIRING;
-      currentToken = doc["token"].as<String>();
-      Serial.println("PAIRING | Token:" + currentToken);
-    } else {
-      currentState = STATE_UNCLAIMED;
-      Serial.println("UNCLAIMED (New/Reset)");
+      Serial.println("Device PAIRED");
     }
-  } else {
-    Serial.print("Status check error code: ");
-    Serial.println(code);
   }
   http.end();
 }
 
-void initPairing() {
-  if (WiFi.status() != WL_CONNECTED || backendUrl == "") return;
-  currentToken = String(random(100000, 999999));
-  HTTPClient http;
-  http.begin(backendUrl + "/api/esp/pair/init");
-  http.addHeader("Content-Type", "application/json");
-  String body = "{\"mac\":\"" + deviceMac + "\",\"token\":\"" + currentToken + "\"}";
-  if (http.POST(body) == 200) {
-    currentState = STATE_PAIRING;
-    Serial.println("Sent Pairing Token: " + currentToken);
-  }
-  http.end();
-}
-
+// ======================= MQTT CALLBACK =======================
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String msg = "";
-  for (int i = 0; i < length; i++) msg += (char)payload[i];
-  Serial.print("MQTT Received ["); Serial.print(topic); Serial.print("]: "); Serial.println(msg);
+  for (int i = 0; i < length; i++)
+    msg += (char)payload[i];
 
-  StaticJsonDocument<512> doc;
-  DeserializationError error = deserializeJson(doc, msg);
-  if (error) {
-    Serial.print("JSON Parse Failed: "); Serial.println(error.c_str());
-    return;
-  }
+  Serial.print("MQTT Received: ");
+  Serial.println(msg);
 
-  const char* cmd = doc["command"];
-  if (cmd == NULL) return;
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, msg)) return;
 
-  if (String(cmd) == "MOTOR_IN_ON") {
-    digitalWrite(MOTOR_INLET_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_IN PIN 22 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_IN_OFF") {
-    digitalWrite(MOTOR_INLET_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_IN PIN 22 -> HIGH (OFF)");
-  } else if (String(cmd) == "MOTOR_OUT_ON") {
-    digitalWrite(MOTOR_OUTLET_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_OUT PIN 23 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_OUT_OFF") {
-    digitalWrite(MOTOR_OUTLET_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_OUT PIN 23 -> HIGH (OFF)");
-  } else if (String(cmd) == "MOTOR_PHUP_ON") {
-    digitalWrite(MOTOR_PH_UP_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_PHUP PIN 18 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_PHUP_OFF") {
-    digitalWrite(MOTOR_PH_UP_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_PHUP PIN 18 -> HIGH (OFF)");
-  } else if (String(cmd) == "MOTOR_PHDOWN_ON") {
-    digitalWrite(MOTOR_PH_DOWN_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_PHDOWN PIN 19 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_PHDOWN_OFF") {
-    digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_PHDOWN PIN 19 -> HIGH (OFF)");
-  } else if (String(cmd) == "MOTOR_NUTRIENTA_ON") {
-    digitalWrite(MOTOR_NUTRIENT_A_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_NUTRIENTA PIN 25 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_NUTRIENTA_OFF") {
-    digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_NUTRIENTA PIN 25 -> HIGH (OFF)");
-  } else if (String(cmd) == "MOTOR_NUTRIENTB_ON") {
-    digitalWrite(MOTOR_NUTRIENT_B_PIN, LOW);
-    Serial.println(">>> Physical Action: MOTOR_NUTRIENTB PIN 26 -> LOW (ON)");
-  } else if (String(cmd) == "MOTOR_NUTRIENTB_OFF") {
-    digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
-    Serial.println(">>> Physical Action: MOTOR_NUTRIENTB PIN 26 -> HIGH (OFF)");
-  }
-}
+  String cmd = doc["command"].as<String>();
 
-void reconnectMqtt() {
-  if (mqttIp == "" || companyId == "" || deviceId == "") {
-    return;
-  }
-  if (!client.connected()) {
-    Serial.print("Connecting MQTT to " + mqttIp + "...");
-    String clientId = "ESP32-" + deviceMac;
-    if (client.connect(clientId.c_str())) {
-      String topic = "company/" + companyId + "/device/" + deviceId + "/command";
-      client.subscribe(topic.c_str());
-      Serial.println("CONNECTED");
+  if (cmd == "START_CONTROL") {
+    if (controlState == MONITOR_ONLY) {
+      Serial.println("Starting One-Time Control Cycle");
+      controlState = CONTROL_PH;
+      stateStartTime = millis();
+      currentlyDosing = false;
     } else {
-      Serial.print("FAILED [rc=");
-      Serial.print(client.state());
-      Serial.println("]");
-      delay(5000);
+      Serial.println("Control cycle already active, ignoring START_CONTROL");
     }
   }
+  else if (cmd == "MOTOR_IN_ON") { digitalWrite(MOTOR_IN_PIN, LOW); Serial.println("INLET ON"); }
+  else if (cmd == "MOTOR_IN_OFF") { digitalWrite(MOTOR_IN_PIN, HIGH); Serial.println("INLET OFF"); }
+  else if (cmd == "MOTOR_OUT_ON") { digitalWrite(MOTOR_OUT_PIN, LOW); Serial.println("OUTLET ON"); }
+  else if (cmd == "MOTOR_OUT_OFF") { digitalWrite(MOTOR_OUT_PIN, HIGH); Serial.println("OUTLET OFF"); }
+  else if (cmd == "MOTOR_PH_UP_ON") { digitalWrite(MOTOR_PH_DOWN_PIN, HIGH); digitalWrite(MOTOR_PH_UP_PIN, LOW); }
+  else if (cmd == "MOTOR_PH_UP_OFF") { digitalWrite(MOTOR_PH_UP_PIN, HIGH); }
+  else if (cmd == "MOTOR_PH_DOWN_ON") { digitalWrite(MOTOR_PH_UP_PIN, HIGH); digitalWrite(MOTOR_PH_DOWN_PIN, LOW); }
+  else if (cmd == "MOTOR_PH_DOWN_OFF") { digitalWrite(MOTOR_PH_DOWN_PIN, HIGH); }
+  else if (cmd == "MOTOR_NUTRIENT_A_ON") { digitalWrite(MOTOR_NUTRIENT_A_PIN, LOW); }
+  else if (cmd == "MOTOR_NUTRIENT_A_OFF") { digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH); }
+  else if (cmd == "MOTOR_NUTRIENT_B_ON") { digitalWrite(MOTOR_NUTRIENT_B_PIN, LOW); }
+  else if (cmd == "MOTOR_NUTRIENT_B_OFF") { digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH); }
 }
 
+// ======================= MQTT RECONNECT =======================
+void reconnectMqtt() {
+  if (mqttIp == "" || companyId == "" || deviceId == "") return;
+  if (client.connected()) return;
+
+  Serial.println("Connecting MQTT...");
+
+  IPAddress m;
+  m.fromString(mqttIp);
+  client.setServer(m, mqttPort);
+
+  String clientId = "ESP32-" + deviceMac;
+
+  if (client.connect(clientId.c_str())) {
+    Serial.println("MQTT Connected");
+    String topic = "company/" + companyId + "/device/" + deviceId + "/command";
+    client.subscribe(topic.c_str());
+    Serial.println("Subscribed to topic");
+  } else {
+    Serial.println("MQTT Failed");
+  }
+}
+
+// ======================= TELEMETRY =======================
 void handleTelemetry() {
   if (millis() - lastTelemetryTime < TELEMETRY_INTERVAL) return;
   lastTelemetryTime = millis();
 
-  // Read Sensors
   float t = dht.readTemperature();
   float h = dht.readHumidity();
-  if (isnan(t)) t = 25.0; 
+  if (isnan(h) || isnan(t)) {
+    t = 25;
+    h = 35;
+  } 
+
   float tdsVolt = analogRead(TDS_PIN) * (VREF / ADC_RES);
   float ec = (133.42 * pow(tdsVolt,3) - 255.86 * pow(tdsVolt,2) + 857.39 * tdsVolt);
   float tds = (ec / (1.0 + 0.02 * (t - 25.0))) * 0.5;
+
   float phVolt = analogRead(PH_PIN) * (VREF / ADC_RES);
   float ph = ph_m * phVolt + ph_b;
 
-  // Print to Serial REGARDLESS of anything (Best for debugging)
-  Serial.printf("Sensors -> T:%.1f H:%.1f pH:%.2f TDS:%.0f\n", t, h, ph, tds);
+  // Placeholder for Water Level (simulate a healthy tank reading)
+  float waterLevelCm = 85.0; 
 
-  // Send to MQTT only if PAIRED and CONNECTED
+  String stateStr = "MONITOR_ONLY";
+  if (controlState == CONTROL_PH) stateStr = "CONTROL_PH";
+  if (controlState == WAIT_AFTER_PH) stateStr = "WAIT_AFTER_PH";
+  if (controlState == CONTROL_TDS) stateStr = "CONTROL_TDS";
+  if (controlState == WAIT_AFTER_TDS) stateStr = "WAIT_AFTER_TDS";
+
+  Serial.printf("State: %s | T: %.2f  H: %.2f  pH: %.2f  TDS: %.2f  W-LVL: %.1f\n", stateStr.c_str(), t, h, ph, tds, waterLevelCm);
+
   if (currentState == STATE_PAIRED && client.connected()) {
     StaticJsonDocument<256> doc;
     doc["ph"] = ph;
     doc["tds"] = tds;
     doc["temperature"] = t;
     doc["humidity"] = h;
+    doc["waterLevelCm"] = waterLevelCm;
+    doc["controlState"] = stateStr;
+
     String out;
     serializeJson(doc, out);
+
     String topic = "company/" + companyId + "/device/" + deviceId + "/telemetry";
     client.publish(topic.c_str(), out.c_str());
   }
 }
 
+// ======================= ONE-TIME CONTROL MACHINE =======================
+void handleControlMachine() {
+  if (controlState == MONITOR_ONLY) return;
+
+  unsigned long elapsed = millis() - stateStartTime;
+
+  switch (controlState) {
+    case CONTROL_PH:
+      if (!currentlyDosing) {
+        // Step 1: Read pH. Ensure nutrient pumps are OFF to prevent interference.
+        digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
+        digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
+        
+        float phVolt = analogRead(PH_PIN) * (VREF / ADC_RES);
+        float ph = ph_m * phVolt + ph_b;
+        
+        Serial.printf("[CONTROL] Read pH: %.2f\n", ph);
+
+        // Step 2: Adjust if necessary
+        if (ph < TARGET_PH_MIN) {
+          Serial.println("[CONTROL] pH too low, dosing pH Up...");
+          digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
+          digitalWrite(MOTOR_PH_UP_PIN, LOW);
+          currentlyDosing = true;
+        } else if (ph > TARGET_PH_MAX) {
+          Serial.println("[CONTROL] pH too high, dosing pH Down...");
+          digitalWrite(MOTOR_PH_UP_PIN, HIGH);
+          digitalWrite(MOTOR_PH_DOWN_PIN, LOW);
+          currentlyDosing = true;
+        } else {
+          Serial.println("[CONTROL] pH is within limits, skipping dose.");
+          // Skip dosing, go straight to wait
+          controlState = WAIT_AFTER_PH;
+          stateStartTime = millis();
+        }
+      } else {
+        // If dosing, wait for DOSE_DURATION to complete
+        if (elapsed > DOSE_DURATION) {
+          digitalWrite(MOTOR_PH_UP_PIN, HIGH);
+          digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
+          currentlyDosing = false;
+          controlState = WAIT_AFTER_PH;
+          stateStartTime = millis();
+          Serial.println("[CONTROL] pH dosing complete, waiting for mixing...");
+        }
+      }
+      break;
+
+    case WAIT_AFTER_PH:
+      // Step 3: Wait 1 min for mixing
+      if (elapsed > MIX_WAIT_DURATION) {
+        controlState = CONTROL_TDS;
+        stateStartTime = millis();
+        Serial.println("[CONTROL] pH mixing complete, moving to TDS reading...");
+      }
+      break;
+
+    case CONTROL_TDS:
+      if (!currentlyDosing) {
+        // Step 4: Read TDS. Ensure pH pumps are OFF to prevent interference.
+        digitalWrite(MOTOR_PH_UP_PIN, HIGH);
+        digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
+        
+        float tdsVolt = analogRead(TDS_PIN) * (VREF / ADC_RES);
+        float t = dht.readTemperature();
+        if (isnan(t)) t = 25.0;
+        float ec = (133.42 * pow(tdsVolt,3) - 255.86 * pow(tdsVolt,2) + 857.39 * tdsVolt);
+        float tds = (ec / (1.0 + 0.02 * (t - 25.0))) * 0.5;
+
+        Serial.printf("[CONTROL] Read TDS: %.2f\n", tds);
+
+        // Step 5: Adjust if necessary
+        if (tds < TARGET_TDS_MIN) {
+          Serial.println("[CONTROL] TDS too low, dosing Nutrients A & B...");
+          digitalWrite(MOTOR_NUTRIENT_A_PIN, LOW);
+          digitalWrite(MOTOR_NUTRIENT_B_PIN, LOW);
+          currentlyDosing = true;
+        } else {
+          Serial.println("[CONTROL] TDS is within limits, skipping dose.");
+          controlState = WAIT_AFTER_TDS;
+          stateStartTime = millis();
+        }
+      } else {
+        if (elapsed > DOSE_DURATION) {
+          digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
+          digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
+          currentlyDosing = false;
+          controlState = WAIT_AFTER_TDS;
+          stateStartTime = millis();
+          Serial.println("[CONTROL] TDS dosing complete, waiting for mixing...");
+        }
+      }
+      break;
+
+    case WAIT_AFTER_TDS:
+      // Step 6 & 7: Wait 1 min for mixing, then return to monitor mode
+      if (elapsed > MIX_WAIT_DURATION) {
+        controlState = MONITOR_ONLY;
+        Serial.println("[CONTROL] Cycle Complete! Returning to Monitoring Mode.");
+      }
+      break;
+  }
+}
+
+// ======================= SETUP =======================
 void setup() {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("\n--- ESP32 STARTUP ---");
+  Serial.println("\n--- SYSTEM START ---");
 
-  // Robust Pin Setup
-  pinMode(MOTOR_INLET_PIN, OUTPUT); 
-  pinMode(MOTOR_OUTLET_PIN, OUTPUT);
+  pinMode(MOTOR_IN_PIN, OUTPUT);
+  pinMode(MOTOR_OUT_PIN, OUTPUT);
   pinMode(MOTOR_PH_UP_PIN, OUTPUT);
   pinMode(MOTOR_PH_DOWN_PIN, OUTPUT);
   pinMode(MOTOR_NUTRIENT_A_PIN, OUTPUT);
   pinMode(MOTOR_NUTRIENT_B_PIN, OUTPUT);
-  
-  // Set all pins HIGH (OFF for active-low relays usually)
-  digitalWrite(MOTOR_INLET_PIN, HIGH);
-  digitalWrite(MOTOR_OUTLET_PIN, HIGH);
+
+  digitalWrite(MOTOR_IN_PIN, HIGH);
+  digitalWrite(MOTOR_OUT_PIN, HIGH);
   digitalWrite(MOTOR_PH_UP_PIN, HIGH);
   digitalWrite(MOTOR_PH_DOWN_PIN, HIGH);
   digitalWrite(MOTOR_NUTRIENT_A_PIN, HIGH);
   digitalWrite(MOTOR_NUTRIENT_B_PIN, HIGH);
-  
-  // STARTUP TEST: Blink the inlet pump once to verify hardware
-  Serial.println(">>> Hardware Test: Blinking Inlet Pump Pin 22 for 1 second...");
-  digitalWrite(MOTOR_INLET_PIN, LOW);   // ON
-  delay(1000);
-  digitalWrite(MOTOR_INLET_PIN, HIGH);  // OFF
-  Serial.println(">>> Startup Blink Complete.");
 
   analogReadResolution(12);
   dht.begin();
-  loadConfig();
+
   connectToWiFi();
   deviceMac = WiFi.macAddress();
-  
-  if (mqttIp != "") {
-    IPAddress m; m.fromString(mqttIp);
-    client.setServer(m, mqttPort);
-    client.setCallback(mqttCallback);
-  }
+
+  client.setBufferSize(512);
+  client.setCallback(mqttCallback);
+
   checkStatus();
 }
 
+// ======================= LOOP =======================
 void loop() {
-  checkSerialCommands(); 
   connectToWiFi();
-  
+
   if (currentState != STATE_PAIRED) {
     if (millis() - lastStatusCheck > STATUS_INTERVAL) {
       lastStatusCheck = millis();
       checkStatus();
-      if (currentState == STATE_UNCLAIMED) initPairing();
     }
   } else {
     reconnectMqtt();
     client.loop();
   }
-  
-  // ALWAYS handle telemetry (prints to serial)
+
+  handleControlMachine();
   handleTelemetry();
 }

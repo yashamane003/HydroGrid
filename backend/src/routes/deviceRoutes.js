@@ -33,6 +33,7 @@ const {
   motorNutrientAOff,
   motorNutrientBOn,
   motorNutrientBOff,
+  startControl,
 } = require("../controllers/commandController");
 const { protect } = require("../middleware/authMiddleware");
 const { protectDevice } = require("../middleware/deviceAuthMiddleware");
@@ -65,6 +66,7 @@ router.post("/:id/motor/nutrienta/on", protect, motorNutrientAOn);
 router.post("/:id/motor/nutrienta/off", protect, motorNutrientAOff);
 router.post("/:id/motor/nutrientb/on", protect, motorNutrientBOn);
 router.post("/:id/motor/nutrientb/off", protect, motorNutrientBOff);
+router.post("/:id/start-control", protect, startControl);
 router.put("/:id/automation", protect, updateAutomation);
 
 module.exports = router;

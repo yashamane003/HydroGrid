@@ -166,12 +166,12 @@ const getUserDetails = async (req, res) => {
       {
         $match: {
           device: { $in: deviceIds },
-          createdAt: { $gte: sevenDaysAgo },
+          timestamp: { $gte: sevenDaysAgo },
         },
       },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
           count: { $sum: 1 },
         },
       },

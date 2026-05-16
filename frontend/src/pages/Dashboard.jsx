@@ -13,19 +13,25 @@ const Dashboard = () => {
 
     const fetchData = async () => {
         if (!user.token) return;
+        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+        
+        // Fetch Devices
         try {
-            const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const [devRes, plantRes] = await Promise.all([
-                axios.get(`${APP_BASE_URL}/api/devices`, config),
-                axios.get(`${APP_BASE_URL}/api/plants`, config)
-            ]);
-            setDevices(devRes.data);
-            setPlants(plantRes.data);
-            setLoading(false);
-        } catch (error) {
-            console.error('Fetch failed:', error);
-            setLoading(false);
+            const devRes = await axios.get(`${APP_BASE_URL}/api/devices`, config);
+            setDevices(devRes.data || []);
+        } catch (devError) {
+            console.error('Device fetch failed:', devError);
         }
+
+        // Fetch Plants
+        try {
+            const plantRes = await axios.get(`${APP_BASE_URL}/api/plants`, config);
+            setPlants(plantRes.data || []);
+        } catch (plantError) {
+            console.error('Plant fetch failed:', plantError);
+        }
+
+        setLoading(false);
     };
 
     useEffect(() => {
@@ -159,7 +165,7 @@ const Dashboard = () => {
                                 {/* Telemetry Area */}
                                 <div style={{ padding: '1.25rem' }}>
                                     {device.latestData ? (() => {
-                                        const selectedPlantData = plants.find(p => p._id === device.selectedPlant);
+                                        const selectedPlantData = plants.find(p => p._id.toString() === device.selectedPlant?.toString());
                                         const getStatusColor = (val, target, margin) => {
                                             if (device.status !== 'online') return 'var(--text-muted)';
                                             if (!target) return 'var(--text-main)';
@@ -237,6 +243,26 @@ const Dashboard = () => {
                                                         <div style={{ fontSize: '1.15rem', fontWeight: 700, color: device.status === 'online' ? 'var(--text-main)' : 'var(--text-muted)' }}>
                                                             {device.status === 'online' ? (device.latestData.humidity?.toFixed(0) || '--') + '%' : 'OFFLINE'}
                                                         </div>
+                                                    </div>
+
+                                                    {/* WATER LEVEL BOX */}
+                                                    <div style={{ 
+                                                        padding: '0.85rem', background: 'white', borderRadius: '12px', 
+                                                        border: '1px solid var(--glass-stroke)',
+                                                        boxShadow: 'var(--shadow-inner)',
+                                                        gridColumn: '1 / -1'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Water Level</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: device.status === 'online' ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                                                            {device.status === 'online' ? (device.latestData.waterLevelCm || '--') + ' cm' : 'OFFLINE'}
+                                                        </div>
+                                                        {device.status === 'online' && device.latestData.waterLevelCm && (
+                                                            <div style={{ width: '100%', height: '6px', background: 'var(--bg-canvas)', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', background: 'var(--primary)', width: `${Math.min(100, Math.max(0, (device.latestData.waterLevelCm / 100) * 100))}%` }}></div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 

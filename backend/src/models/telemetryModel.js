@@ -17,6 +17,8 @@ const telemetrySchema = mongoose.Schema(
       tds: Number,
       temperature: Number,
       humidity: Number,
+      waterLevelCm: Number,
+      controlState: String,
     },
     timestamp: {
       type: Date,

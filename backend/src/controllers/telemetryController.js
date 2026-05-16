@@ -81,6 +81,8 @@ const getLatestTelemetry = async (req, res) => {
       motorPhDownStatus: device.motorPhDownStatus,
       motorNutrientAStatus: device.motorNutrientAStatus,
       motorNutrientBStatus: device.motorNutrientBStatus,
+      controlState: device.controlState || "MONITOR_ONLY",
+      waterLevelCm: device.waterLevelCm || 0,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

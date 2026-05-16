@@ -67,14 +67,14 @@ const sendCommand = async (req, res) => {
     if (command === "MOTOR_IN_OFF") device.motorInStatus = "OFF";
     if (command === "MOTOR_OUT_ON") device.motorOutStatus = "ON";
     if (command === "MOTOR_OUT_OFF") device.motorOutStatus = "OFF";
-    if (command === "MOTOR_PH_UP_ON") device.motorPhUpStatus = "ON";
-    if (command === "MOTOR_PH_UP_OFF") device.motorPhUpStatus = "OFF";
-    if (command === "MOTOR_PH_DOWN_ON") device.motorPhDownStatus = "ON";
-    if (command === "MOTOR_PH_DOWN_OFF") device.motorPhDownStatus = "OFF";
-    if (command === "MOTOR_NUTRIENT_A_ON") device.motorNutrientAStatus = "ON";
-    if (command === "MOTOR_NUTRIENT_A_OFF") device.motorNutrientAStatus = "OFF";
-    if (command === "MOTOR_NUTRIENT_B_ON") device.motorNutrientBStatus = "ON";
-    if (command === "MOTOR_NUTRIENT_B_OFF") device.motorNutrientBStatus = "OFF";
+    if (command === "MOTOR_PHUP_ON") device.motorPhUpStatus = "ON";
+    if (command === "MOTOR_PHUP_OFF") device.motorPhUpStatus = "OFF";
+    if (command === "MOTOR_PHDOWN_ON") device.motorPhDownStatus = "ON";
+    if (command === "MOTOR_PHDOWN_OFF") device.motorPhDownStatus = "OFF";
+    if (command === "MOTOR_NUTRIENTA_ON") device.motorNutrientAStatus = "ON";
+    if (command === "MOTOR_NUTRIENTA_OFF") device.motorNutrientAStatus = "OFF";
+    if (command === "MOTOR_NUTRIENTB_ON") device.motorNutrientBStatus = "ON";
+    if (command === "MOTOR_NUTRIENTB_OFF") device.motorNutrientBStatus = "OFF";
     await device.save();
 
     res.status(200).json({
@@ -113,43 +113,98 @@ const motorOutOff = async (req, res) => {
 };
 
 const motorPhUpOn = async (req, res) => {
-  req.body.command = "MOTOR_PH_UP_ON";
+  req.body.command = "MOTOR_PHUP_ON";
   return sendCommand(req, res);
 };
 
 const motorPhUpOff = async (req, res) => {
-  req.body.command = "MOTOR_PH_UP_OFF";
+  req.body.command = "MOTOR_PHUP_OFF";
   return sendCommand(req, res);
 };
 
 const motorPhDownOn = async (req, res) => {
-  req.body.command = "MOTOR_PH_DOWN_ON";
+  req.body.command = "MOTOR_PHDOWN_ON";
   return sendCommand(req, res);
 };
 
 const motorPhDownOff = async (req, res) => {
-  req.body.command = "MOTOR_PH_DOWN_OFF";
+  req.body.command = "MOTOR_PHDOWN_OFF";
   return sendCommand(req, res);
 };
 
 const motorNutrientAOn = async (req, res) => {
-  req.body.command = "MOTOR_NUTRIENT_A_ON";
+  req.body.command = "MOTOR_NUTRIENTA_ON";
   return sendCommand(req, res);
 };
 
 const motorNutrientAOff = async (req, res) => {
-  req.body.command = "MOTOR_NUTRIENT_A_OFF";
+  req.body.command = "MOTOR_NUTRIENTA_OFF";
   return sendCommand(req, res);
 };
 
 const motorNutrientBOn = async (req, res) => {
-  req.body.command = "MOTOR_NUTRIENT_B_ON";
+  req.body.command = "MOTOR_NUTRIENTB_ON";
   return sendCommand(req, res);
 };
 
 const motorNutrientBOff = async (req, res) => {
-  req.body.command = "MOTOR_NUTRIENT_B_OFF";
+  req.body.command = "MOTOR_NUTRIENTB_OFF";
   return sendCommand(req, res);
+};
+
+const startControl = async (req, res) => {
+  const deviceId = req.params.id;
+
+  // 1. Validate Ownership
+  const device = await Device.findOne({
+    $or: [{ deviceId: deviceId }, { _id: deviceId }],
+    company: req.user.company,
+  });
+
+  if (!device) {
+    return res.status(404).json({ message: "Device not found" });
+  }
+
+  // 2. Validate State
+  if (device.controlState && device.controlState !== "MONITOR_ONLY") {
+    return res.status(400).json({ message: "Control cycle already active" });
+  }
+
+  // 3. Log Intent
+  const log = await DeviceCommandLog.create({
+    device: device._id,
+    user: req.user._id,
+    command: "START_CONTROL",
+    payload: {},
+    status: "pending",
+  });
+
+  // 4. Publish to MQTT
+  const topic = `company/${req.user.company}/device/${device.deviceId}/command`;
+  const message = JSON.stringify({
+    cmdId: log._id,
+    command: "START_CONTROL",
+    payload: {},
+    timestamp: Date.now(),
+  });
+
+  mqttClient.publish(topic, message, { qos: 1 }, async (err) => {
+    if (err) {
+      console.error("MQTT Publish Error:", err);
+      log.status = "failed";
+      await log.save();
+      return res.status(500).json({ message: "Failed to send command" });
+    }
+
+    log.status = "sent";
+    await log.save();
+
+    res.status(200).json({
+      message: "One-Time Control started",
+      commandId: log._id,
+      status: "sent",
+    });
+  });
 };
 
 module.exports = {
@@ -166,4 +221,5 @@ module.exports = {
   motorNutrientAOff,
   motorNutrientBOn,
   motorNutrientBOff,
+  startControl,
 };

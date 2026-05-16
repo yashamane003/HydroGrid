@@ -61,6 +61,18 @@ const Analytics = () => {
         }
     };
 
+    const startControlCycle = async () => {
+        if (!userInfo) return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+            await axios.post(`${APP_BASE_URL}/api/devices/${id}/start-control`, {}, config);
+            const { data: last } = await axios.get(`${APP_BASE_URL}/api/devices/${id}/telemetry`, config);
+            setLatest(last);
+        } catch (error) {
+            alert('Failed to start control: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
     const motorAction = (motorKey, action) => {
         // action is 'ON' or 'OFF'
         let key = motorKey.toUpperCase();
@@ -113,58 +125,21 @@ const Analytics = () => {
                         <StatCard label="TDS" value={latest.status === 'online' ? (latest.data?.tds || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "ppm" : ""} color="var(--primary)" />
                         <StatCard label="W-TEMP" value={latest.status === 'online' ? (latest.data?.temperature || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "°C" : ""} color="var(--primary)" />
                         <StatCard label="HUMIDITY" value={latest.status === 'online' ? (latest.data?.humidity || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "%" : ""} color="var(--primary)" />
+                        <StatCard label="WATER LVL" value={latest.status === 'online' ? (latest.data?.waterLevelCm || '--') : 'OFFLINE'} unit={latest.status === 'online' ? "cm" : ""} color="var(--primary)" />
                 </div>
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
                     <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', display: 'flex', flexDirection: 'column', border: '1px solid var(--glass-stroke)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '16px' }}>
-                            <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem', fontWeight: 700 }}>Telemetry Histogram</h3>
-                            
-                            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-canvas)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--glass-stroke)' }}>
-                                {['ph', 'tds', 'temp', 'humidity'].map(tab => (
-                                    <button 
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        style={{ 
-                                            padding: '0.35rem 0.75rem', 
-                                            background: activeTab === tab ? 'white' : 'transparent', 
-                                            color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                                            border: activeTab === tab ? '1px solid var(--glass-stroke)' : 'none',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            fontWeight: activeTab === tab ? 700 : 600,
-                                            fontSize: '0.7rem',
-                                            boxShadow: activeTab === tab ? 'var(--shadow-sm)' : 'none'
-                                        }}
-                                    >
-                                        {tab === 'temp' ? 'TEMP' : tab.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
+                            <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem', fontWeight: 700 }}>Telemetry Activity</h3>
                         </div>
-
-                        <div style={{ flex: 1, minHeight: '300px' }}>
-                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={history}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-stroke)" />
-                                    <XAxis dataKey="timestamp" tickFormatter={(t) => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} stroke="var(--text-muted)" tick={{fontSize: 9, fontWeight: 700}} axisLine={false} tickLine={false} />
-                                    <YAxis domain={activeTab === 'ph' ? [4, 9] : ['auto', 'auto']} stroke="var(--text-muted)" tick={{fontSize: 9, fontWeight: 700}} axisLine={false} tickLine={false} />
-                                    <Tooltip 
-                                        contentStyle={{ background: 'white', border: '1px solid var(--glass-stroke)', borderRadius: '8px', boxShadow: 'var(--shadow-premium)', fontSize: '0.75rem' }} 
-                                        labelFormatter={(t) => new Date(t).toLocaleString()} 
-                                    />
-                                    <Line 
-                                        type="monotone" 
-                                        dataKey={getChartDataKey(activeTab)} 
-                                        stroke={getChartColor(activeTab)} 
-                                        strokeWidth={3} 
-                                        dot={false} 
-                                        activeDot={{ r: 6, fill: getChartColor(activeTab), stroke: 'white', strokeWidth: 2 }} 
-                                        name={activeTab.toUpperCase()} 
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', minHeight: '400px' }}>
+                             <ChartBox data={history} dataKey="data.ph" color="#ec4899" title="pH Level" domain={[4, 9]} />
+                             <ChartBox data={history} dataKey="data.tds" color="#3b82f6" title="TDS (ppm)" />
+                             <ChartBox data={history} dataKey="data.temperature" color="#10b981" title="Temperature (°C)" />
+                             <ChartBox data={history} dataKey="data.humidity" color="#8b5cf6" title="Humidity (%)" />
                         </div>
                     </div>
 
@@ -176,27 +151,46 @@ const Analytics = () => {
                             </h3>
                             
                             <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                <button className="btn btn-primary" style={{ width: '100%', fontSize: '0.75rem', padding: '0.65rem' }} onClick={() => sendCommand('SET_PH', { target: 6.5 })}>
-                                    Calibrate pH Strategy &rarr;
-                                </button>
-                                <button className="btn" style={{ width: '100%', background: 'white', border: '1px solid var(--glass-stroke)', color: 'var(--text-main)', fontSize: '0.75rem', padding: '0.65rem' }} onClick={() => sendCommand('DOSE_NUTRIENTS')}>
-                                    Dose Concentration
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ 
+                                        width: '100%', fontSize: '0.75rem', padding: '0.85rem',
+                                        opacity: (latest?.controlState !== 'MONITOR_ONLY' || latest?.status !== 'online') ? 0.5 : 1,
+                                        cursor: (latest?.controlState !== 'MONITOR_ONLY' || latest?.status !== 'online') ? 'not-allowed' : 'pointer',
+                                        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+                                    }} 
+                                    disabled={latest?.controlState !== 'MONITOR_ONLY' || latest?.status !== 'online'}
+                                    onClick={startControlCycle}
+                                >
+                                    {latest?.controlState !== 'MONITOR_ONLY' ? (
+                                        <>
+                                            <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px' }}></div>
+                                            Control Cycle Active
+                                        </>
+                                    ) : (
+                                        'Start One-Time Control'
+                                    )}
                                 </button>
                             </div>
-                        </div>
 
+                            <ControlTimeline controlState={latest?.controlState || 'MONITOR_ONLY'} />
+                        </div>
+                        
                         <div className="card glass-card" style={{ background: 'white', padding: '1.25rem', border: '1px solid var(--glass-stroke)' }}>
-                             <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '0.5rem' }}>
-                                Motor Actuation
+                            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, borderBottom: '1px solid var(--glass-stroke)', paddingBottom: '0.5rem' }}>
+                                Motor Actuation Activity
                             </h3>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <MotorControl label="Inlet Pump" status={latest?.motorInStatus} onOn={() => motorAction('in', 'ON')} onOff={() => motorAction('in', 'OFF')} disabled={latest?.status !== 'online'} />
-                                <MotorControl label="Outlet Pump" status={latest?.motorOutStatus} onOn={() => motorAction('out', 'ON')} onOff={() => motorAction('out', 'OFF')} disabled={latest?.status !== 'online'} />
-                                <MotorControl label="pH Up (Base)" status={latest?.motorPhUpStatus} onOn={() => motorAction('phup', 'ON')} onOff={() => motorAction('phup', 'OFF')} disabled={latest?.status !== 'online'} />
-                                <MotorControl label="pH Down (Acid)" status={latest?.motorPhDownStatus} onOn={() => motorAction('phdown', 'ON')} onOff={() => motorAction('phdown', 'OFF')} disabled={latest?.status !== 'online'} />
-                                <MotorControl label="Nutrient A" status={latest?.motorNutrientAStatus} onOn={() => motorAction('nutrienta', 'ON')} onOff={() => motorAction('nutrienta', 'OFF')} disabled={latest?.status !== 'online'} />
-                                <MotorControl label="Nutrient B" status={latest?.motorNutrientBStatus} onOn={() => motorAction('nutrientb', 'ON')} onOff={() => motorAction('nutrientb', 'OFF')} disabled={latest?.status !== 'online'} />
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                Motors are now controlled automatically by the hardware cycle. 
+                                Below is the recent control timeline based on telemetry.
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', maxHeight: '200px', overflowY: 'auto' }}>
+                                {history.filter(h => h.data?.controlState && h.data.controlState !== 'MONITOR_ONLY').slice(0, 5).map((h, i) => (
+                                    <div key={i} style={{ padding: '8px', background: 'var(--bg-canvas)', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{h.data.controlState}</div>
+                                        <div style={{ color: 'var(--text-muted)' }}>{new Date(h.timestamp).toLocaleTimeString()}</div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -218,50 +212,56 @@ const StatCard = ({ label, value, unit, color }) => (
     </div>
 );
 
-const MotorControl = ({ label, status, onOn, onOff, disabled }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--glass-stroke)' }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 600 }}>{label}</div>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button 
-                disabled={disabled}
-                onClick={onOn}
-                style={{ 
-                    padding: '0.45rem 0.75rem', 
-                    borderRadius: '6px', 
-                    border: '1px solid var(--glass-stroke)',
-                    background: status === 'ON' ? 'var(--primary)' : 'white',
-                    color: status === 'ON' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 700,
-                    fontSize: '0.6rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: disabled ? 0.5 : 1,
-                    minWidth: '50px'
-                }}
-            >
-                ON
-            </button>
-            <button 
-                disabled={disabled}
-                onClick={onOff}
-                style={{ 
-                    padding: '0.45rem 0.75rem', 
-                    borderRadius: '6px', 
-                    border: '1px solid var(--glass-stroke)',
-                    background: status === 'OFF' ? '#64748b' : 'white',
-                    color: status === 'OFF' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 700,
-                    fontSize: '0.6rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: disabled ? 0.5 : 1,
-                    minWidth: '50px'
-                }}
-            >
-                OFF
-            </button>
+const ChartBox = ({ data, dataKey, color, title, domain = ['auto', 'auto'] }) => (
+    <div style={{ background: 'var(--bg-canvas)', borderRadius: '8px', padding: '12px', border: '1px solid var(--glass-stroke)', display: 'flex', flexDirection: 'column' }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{title}</h4>
+        <div style={{ flex: 1, minHeight: '120px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                    <XAxis dataKey="timestamp" hide />
+                    <YAxis domain={domain} hide />
+                    <Tooltip contentStyle={{ fontSize: '0.7rem' }} labelFormatter={(t) => new Date(t).toLocaleTimeString()} />
+                    <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={false} />
+                </LineChart>
+            </ResponsiveContainer>
         </div>
     </div>
 );
+
+const ControlTimeline = ({ controlState }) => {
+    const states = [
+        { id: 'MONITOR_ONLY', label: 'Monitoring Mode (Idle)', color: '#64748b' },
+        { id: 'CONTROL_PH', label: 'Reading & Adjusting pH', color: '#ec4899' },
+        { id: 'WAIT_AFTER_PH', label: 'Waiting 1 min (Mixing)', color: '#f59e0b' },
+        { id: 'CONTROL_TDS', label: 'Reading & Adjusting TDS', color: '#3b82f6' },
+        { id: 'WAIT_AFTER_TDS', label: 'Waiting 1 min (Mixing)', color: '#f59e0b' }
+    ];
+    
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <h4 style={{ margin: 0, fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Control Timeline</h4>
+            {states.map((state, idx) => {
+                const isActive = controlState === state.id;
+                return (
+                    <div key={state.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: isActive || state.id === 'MONITOR_ONLY' ? 1 : 0.4, transition: 'all 0.3s ease' }}>
+                        <div style={{ 
+                            width: '12px', height: '12px', borderRadius: '50%', 
+                            background: isActive ? state.color : 'transparent',
+                            border: `2px solid ${isActive ? state.color : '#cbd5e1'}`,
+                            boxShadow: isActive ? `0 0 8px ${state.color}80` : 'none',
+                            transition: 'all 0.3s ease'
+                        }} />
+                        <div style={{ fontSize: '0.75rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                            {state.label}
+                        </div>
+                        {isActive && state.id !== 'MONITOR_ONLY' && (
+                            <div className="spinner" style={{ width: '10px', height: '10px', borderWidth: '2px', borderColor: `${state.color} transparent transparent transparent`, marginLeft: 'auto' }}></div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
 
 export default Analytics;

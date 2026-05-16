@@ -45,6 +45,15 @@ const deviceSchema = mongoose.Schema(
     tokenExpiresAt: {
       type: Date,
     },
+    controlState: {
+      type: String,
+      enum: ["MONITOR_ONLY", "CONTROL_PH", "WAIT_AFTER_PH", "CONTROL_TDS", "WAIT_AFTER_TDS"],
+      default: "MONITOR_ONLY",
+    },
+    waterLevelCm: {
+      type: Number,
+      default: 0,
+    },
     automationEnabled: {
       type: Boolean,
       default: false,
